@@ -18,7 +18,7 @@
     "collect": "tsx src/cli.ts collect",
     "standup": "tsx src/cli.ts standup",
     "typecheck": "tsc --noEmit",
-    "test": "node --test"
+    "test": "node --import tsx --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "@octokit/rest": "^21.0.2",

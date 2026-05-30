@@ -50,11 +50,9 @@ async function main(): Promise<void> {
 
   switch (command) {
     case 'collect': {
-      // Wired in Phase 1. Validates config + secrets load correctly for now.
-      console.error(
-        `collect: ready — org=${config.org}, repos=${config.repos.length || 'all'}, ` +
-          `token=${secrets.githubToken ? 'present' : 'MISSING'}. Fetch lands in Phase 1.`,
-      );
+      const { collect } = await import('./collect.js');
+      const activity = await collect(config, secrets);
+      process.stdout.write(JSON.stringify(activity, null, 2) + '\n');
       break;
     }
     case 'standup': {
