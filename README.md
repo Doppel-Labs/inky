@@ -70,12 +70,14 @@ and with none, Herald falls back to the deterministic mechanical render.
 
 | `provider` | Key (env) | Default model | Notes |
 |---|---|---|---|
-| `anthropic` (default) | `ANTHROPIC_API_KEY` | `claude-opus-4-8` | Best grounded quality. |
+| `anthropic` (default) | `ANTHROPIC_API_KEY` | `claude-haiku-4-5` | Cheap + fast; ample for grounded summaries. Bump to `claude-sonnet-4-6`/`claude-opus-4-8` for headroom. |
 | `groq` | `GROQ_API_KEY` | `llama-3.3-70b-versatile` | Fast, cheap, open-weight. |
 | `openai` | `OPENAI_API_KEY` | `gpt-4o-mini` | OpenAI, or any OpenAI-compatible endpoint via `baseUrl` (OpenRouter, local Ollama). |
 
-`model` overrides the default; `baseUrl` overrides the endpoint (OpenAI-compatible
-providers only). Run `herald standup --mechanical` to skip the AI entirely.
+`model` (config) or `--model <id>` overrides the default; `baseUrl` overrides the
+endpoint (OpenAI-compatible providers only). The summary is constrained extraction
+over a pre-built digest, so a small model holds up — defaults favor cost. Run
+`herald standup --mechanical` to skip the AI entirely.
 
 ### Identity aliases
 

@@ -25,6 +25,7 @@ Options:
   --config <path>   Config file (default: herald.config.json)
   --days <n>        Window length in days (overrides config windowHours)
   --hours <n>       Window length in hours (overrides config windowHours)
+  --model <id>      LLM model id (overrides config model / provider default)
   --dry-run         Print the standup to stdout instead of posting to Discord
   --mechanical      Skip the AI summary; use the deterministic renderer
 
@@ -41,6 +42,7 @@ interface ParsedArgs {
   dryRun: boolean;
   mechanical: boolean;
   windowHours?: number;
+  model?: string;
 }
 
 function parsePositiveNumber(raw: string | undefined): number {
@@ -56,6 +58,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   let dryRun = false;
   let mechanical = false;
   let windowHours: number | undefined;
+  let model: string | undefined;
   for (let i = 0; i < rest.length; i++) {
     if (rest[i] === '--config') {
       const next = rest[i + 1];
@@ -66,6 +69,9 @@ function parseArgs(argv: string[]): ParsedArgs {
       windowHours = parsePositiveNumber(rest[++i]) * 24;
     } else if (rest[i] === '--hours') {
       windowHours = parsePositiveNumber(rest[++i]);
+    } else if (rest[i] === '--model') {
+      model = rest[++i];
+      if (!model) usage();
     } else if (rest[i] === '--dry-run') {
       dryRun = true;
     } else if (rest[i] === '--mechanical') {
@@ -74,11 +80,13 @@ function parseArgs(argv: string[]): ParsedArgs {
       usage();
     }
   }
-  return { command: command as Command, configPath, dryRun, mechanical, windowHours };
+  return { command: command as Command, configPath, dryRun, mechanical, windowHours, model };
 }
 
 async function main(): Promise<void> {
-  const { command, configPath, dryRun, mechanical, windowHours } = parseArgs(process.argv.slice(2));
+  const { command, configPath, dryRun, mechanical, windowHours, model } = parseArgs(
+    process.argv.slice(2),
+  );
   const config = loadConfig(configPath);
   const secrets = loadSecrets();
 
@@ -102,12 +110,13 @@ async function main(): Promise<void> {
       if (llm) {
         try {
           const { summarize } = await import('./summarize.js');
+          const useModel = model ?? llm.model;
           const standup = await summarize(activity, {
             create: llm.create,
-            model: llm.model,
+            model: useModel,
             log: (m) => console.error(m),
           });
-          console.error(`standup: summarized with ${llm.provider} (${llm.model}).`);
+          console.error(`standup: summarized with ${llm.provider} (${useModel}).`);
           markdown = renderStandup(standup);
         } catch (err) {
           console.error(

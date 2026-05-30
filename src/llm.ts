@@ -17,9 +17,15 @@ const BASE_URLS: Record<'groq' | 'openai', string> = {
   openai: 'https://api.openai.com/v1',
 };
 
-/** Sensible default model per provider when config.model is omitted. */
+/**
+ * Sensible default model per provider when config.model is omitted. summarize()
+ * is constrained extraction over a pre-built digest, not open reasoning, so a
+ * small/fast model matches the bigger ones in quality at a fraction of the cost
+ * — and this runs daily, on the user's own key. Bump via config.model for bigger
+ * or noisier teams that want more headroom (e.g. claude-sonnet-4-6).
+ */
 const DEFAULT_MODELS: Record<Config['provider'], string> = {
-  anthropic: 'claude-opus-4-8',
+  anthropic: 'claude-haiku-4-5',
   groq: 'llama-3.3-70b-versatile',
   openai: 'gpt-4o-mini',
 };

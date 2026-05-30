@@ -28,7 +28,7 @@ test('resolves anthropic with its default model when keyed', () => {
   });
   assert.ok(llm);
   assert.equal(llm!.provider, 'anthropic');
-  assert.equal(llm!.model, 'claude-opus-4-8');
+  assert.equal(llm!.model, 'claude-haiku-4-5');
 });
 
 test('resolves groq with its default model when keyed', () => {

@@ -290,7 +290,7 @@ export async function summarize(activity: OrgActivity, opts: SummarizeOptions): 
 
   const digest = buildGroundingDigest(activity);
   const res = await opts.create({
-    model: opts.model ?? 'claude-opus-4-8',
+    model: opts.model ?? 'claude-haiku-4-5',
     max_tokens: opts.maxTokens ?? 2048,
     system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
     messages: [
