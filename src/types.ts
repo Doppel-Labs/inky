@@ -133,13 +133,20 @@ export interface OrgTotals {
   deletions: number;
 }
 
+/** A person's bullets for a single repository, so work is grouped by repo. */
+export interface RepoWork {
+  repo: string;
+  /** Bullet lines for this repo (shipped first, then WIP), with refs. */
+  points: string[];
+}
+
 /** One person's section of the rendered standup. Output of summarize(). */
 export interface PersonStandup {
   person: Person;
   /** AI-written prose: what they did, grounded in their activity. */
   narrative: string;
-  /** Optional short bullet highlights (e.g. notable PRs), with refs. */
-  highlights: string[];
+  /** Bullet highlights grouped by repo — one entry per repo the person touched. */
+  work: RepoWork[];
   /** This person's raw totals, carried for an optional per-person stats line. */
   totals?: PersonActivity['totals'];
 }

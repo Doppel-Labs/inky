@@ -181,7 +181,11 @@ test('summarize maps model output to people by login', async () => {
     create: fakeCreate({
       projectSummary: 'Team pushed on the parser; login shipped.',
       people: [
-        { login: 'dünya', narrative: 'Working on a new parser (#42 merged).', highlights: ['#42 Add login'] },
+        {
+          login: 'dünya',
+          narrative: 'Working on a new parser (#42 merged).',
+          work: [{ repo: 'web', points: ['#42 Add login'] }],
+        },
       ],
     }),
   });
@@ -190,7 +194,7 @@ test('summarize maps model output to people by login', async () => {
   assert.equal(standup.people.length, 1);
   assert.equal(standup.people[0]?.person.login, 'dünya');
   assert.equal(standup.people[0]?.narrative, 'Working on a new parser (#42 merged).');
-  assert.deepEqual(standup.people[0]?.highlights, ['#42 Add login']);
+  assert.deepEqual(standup.people[0]?.work, [{ repo: 'web', points: ['#42 Add login'] }]);
 });
 
 test('summarize matches logins case-insensitively', async () => {

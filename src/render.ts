@@ -264,7 +264,12 @@ export function renderStandup(standup: Standup, opts: RenderOptions = {}): strin
       if (line) out.push(`*${line}*`);
     }
     if (p.narrative) out.push(p.narrative);
-    for (const h of p.highlights) out.push(`- ${h}`);
+    // Group bullets by repo; show a repo subheader only when the person spans >1.
+    const multiRepo = p.work.length > 1;
+    for (const group of p.work) {
+      if (multiRepo) out.push(`**${group.repo}**`);
+      for (const pt of group.points) out.push(`- ${pt}`);
+    }
     out.push('');
   }
 

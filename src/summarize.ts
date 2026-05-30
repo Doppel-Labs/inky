@@ -122,13 +122,28 @@ const EMIT_TOOL: Tool = {
           properties: {
             login: { type: 'string', description: 'The GitHub login exactly as in the digest.' },
             narrative: { type: 'string', description: 'Narrative for this person; length per the depth target.' },
-            highlights: {
+            work: {
               type: 'array',
-              description: 'Up to 3 short bullet highlights with refs (PR #, repo). Optional.',
-              items: { type: 'string' },
+              description:
+                "This person's bullets GROUPED BY REPOSITORY — one entry per repo they " +
+                'worked in (most people touch one repo → one entry).',
+              items: {
+                type: 'object',
+                properties: {
+                  repo: { type: 'string', description: 'Repository name, exactly as in the digest.' },
+                  points: {
+                    type: 'array',
+                    description:
+                      "Bullet lines for THIS repo (shipped first, then work-in-progress), each " +
+                      'with refs (#PR). Do not repeat the repo name inside a point.',
+                    items: { type: 'string' },
+                  },
+                },
+                required: ['repo', 'points'],
+              },
             },
           },
-          required: ['login', 'narrative'],
+          required: ['login', 'narrative', 'work'],
         },
       },
     },
@@ -144,7 +159,9 @@ const StandupOutputSchema = z.object({
       z.object({
         login: z.string(),
         narrative: z.string(),
-        highlights: z.array(z.string()).default([]),
+        work: z
+          .array(z.object({ repo: z.string(), points: z.array(z.string()).default([]) }))
+          .default([]),
       }),
     )
     .default([]),
@@ -411,15 +428,16 @@ export async function summarize(activity: OrgActivity, opts: SummarizeOptions): 
   const detail = detailForWindow(window);
   const digest = buildGroundingDigest(activity, detail);
   const format = opts.format ?? 'prose';
+  const groupRule =
+    `Always GROUP each person's bullets by repository in "work": one entry per repo they ` +
+    `touched, points = that repo's bullets (shipped first, then WIP), no repo name repeated ` +
+    `inside a point. Up to ${detail.maxHighlights + 3} points per repo.`;
   const styleTarget =
     format === 'bullets'
-      ? `STYLE — bullets: write each person's update as concise bullet points in the ` +
-        `"highlights" array (up to ${detail.maxHighlights + 3}), one line each with refs ` +
-        `(#PR, repo). Lead with shipped work, then work-in-progress. Leave "narrative" empty ` +
-        `or a single short lead clause — do NOT write a prose paragraph.`
+      ? `STYLE — bullets: ${groupRule} Leave "narrative" empty or a single short lead clause ` +
+        `— do NOT write a prose paragraph.`
       : `STYLE — prose: write each person's "narrative" as roughly ` +
-        `${detail.perPersonSentences} sentences, plus up to ${detail.maxHighlights} highlight ` +
-        `bullets.`;
+        `${detail.perPersonSentences} sentences. ${groupRule}`;
   const depthTarget =
     `DEPTH TARGET — this is a ${detail.tier} window (${windowLabel(window)}). Scale the ` +
     `write-up to match; longer windows mean a more thorough report — but only from real ` +
@@ -455,7 +473,7 @@ export async function summarize(activity: OrgActivity, opts: SummarizeOptions): 
     return {
       person: p.person,
       narrative: entry?.narrative?.trim() || fallbackNarrative(p),
-      highlights: entry?.highlights ?? [],
+      work: entry?.work ?? [],
       totals: p.totals,
     };
   });

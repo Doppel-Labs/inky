@@ -148,7 +148,7 @@ test('renderStandup renders the project summary and per-person narratives', () =
       {
         person: { login: 'dünya', displayName: 'Dünya', emails: [] },
         narrative: 'Shipped login (#42) and is working on a new parser.',
-        highlights: ['#42 Add login (web)'],
+        work: [{ repo: 'web', points: ['#42 Add login'] }],
       },
     ],
   };
@@ -157,7 +157,8 @@ test('renderStandup renders the project summary and per-person narratives', () =
   assert.match(md, /The team shipped login and is mid-way on the parser\./);
   assert.match(md, /## Dünya \(`dünya`\)/);
   assert.match(md, /Shipped login \(#42\) and is working on a new parser\./);
-  assert.match(md, /- #42 Add login \(web\)/);
+  assert.match(md, /- #42 Add login/);
+  assert.doesNotMatch(md, /\*\*web\*\*/); // single repo → no repo subheader
   assert.match(md, /AI-summarized/);
 });
 
@@ -183,7 +184,7 @@ function standupWithStats(): Standup {
       {
         person: { login: 'dev', displayName: 'Dev', emails: [] },
         narrative: 'Did things.',
-        highlights: [],
+        work: [],
         totals: {
           commits: 30,
           unshippedCommits: 12,
@@ -216,6 +217,33 @@ test('renderStandup adds a per-person stat line only with statsPerPerson', () =>
   assert.doesNotMatch(renderStandup(s, { showStats: true }), /30 commits/);
   const perPerson = renderStandup(s, { statsPerPerson: true });
   assert.match(perPerson, /\*30 commits \(12 unshipped\) · PRs: 4 merged\/5 opened · 3 reviews/);
+});
+
+test('renderStandup shows repo subheaders only when a person spans >1 repo', () => {
+  const md = renderStandup({
+    org: 'Acme',
+    window,
+    projectSummary: '',
+    people: [
+      {
+        person: { login: 'multi', displayName: 'Multi', emails: [] },
+        narrative: '',
+        work: [
+          { repo: 'application', points: ['#1 ship a thing'] },
+          { repo: 'mobile', points: ['#2 bump version'] },
+        ],
+      },
+      {
+        person: { login: 'solo', displayName: 'Solo', emails: [] },
+        narrative: '',
+        work: [{ repo: 'application', points: ['#3 fix a bug'] }],
+      },
+    ],
+  });
+  // multi-repo person gets headers + grouped bullets
+  assert.match(md, /## Multi[\s\S]*\*\*application\*\*\n- #1 ship a thing[\s\S]*\*\*mobile\*\*\n- #2 bump version/);
+  // solo person's single repo gets no header
+  assert.match(md, /## Solo \(`solo`\)\n- #3 fix a bug/);
 });
 
 test('renderStandup handles an empty window', () => {
