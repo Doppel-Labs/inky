@@ -25,7 +25,11 @@ const BASE_URLS: Record<'groq' | 'openai', string> = {
  * or noisier teams that want more headroom (e.g. claude-sonnet-4-6).
  */
 const DEFAULT_MODELS: Record<Config['provider'], string> = {
-  anthropic: 'claude-haiku-4-5',
+  // Sonnet over Haiku: live A/B showed Haiku occasionally mislabels org-wide
+  // aggregates (reported a per-person count as the team total) even with verified
+  // figures in the digest; Sonnet got every aggregate right and writes a richer
+  // standup, still cheaply. Drop to claude-haiku-4-5 via config.model to cut cost.
+  anthropic: 'claude-sonnet-4-6',
   // gpt-oss-120b (OpenAI's open-weight model on Groq) grounds far better than
   // Llama 3.3 70b — sharp shipped/unshipped distinctions and faithful aggregates.
   groq: 'openai/gpt-oss-120b',

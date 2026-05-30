@@ -70,7 +70,7 @@ and with none, Herald falls back to the deterministic mechanical render.
 
 | `provider` | Key (env) | Default model | Notes |
 |---|---|---|---|
-| `anthropic` (default) | `ANTHROPIC_API_KEY` | `claude-haiku-4-5` | Cheap + fast; ample for grounded summaries. Bump to `claude-sonnet-4-6`/`claude-opus-4-8` for headroom. |
+| `anthropic` (default) | `ANTHROPIC_API_KEY` | `claude-sonnet-4-6` | Best grounding (faithful aggregates) + richest standup. Drop to `claude-haiku-4-5` to cut cost. |
 | `groq` | `GROQ_API_KEY` | `openai/gpt-oss-120b` | Fast, cheap, open-weight; grounds well. |
 | `openai` | `OPENAI_API_KEY` | `gpt-4o-mini` | OpenAI, or any OpenAI-compatible endpoint via `baseUrl` (OpenRouter, local Ollama). |
 
