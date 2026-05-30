@@ -42,6 +42,12 @@ export interface CollectOptions {
   now?: Date;
   /** Progress sink (defaults to stderr). */
   log?: (msg: string) => void;
+  /**
+   * Override the window length (hours) from config. Lets a caller — e.g. a
+   * future `/standup last 3 days` slash command — request an arbitrary window
+   * without editing config.
+   */
+  windowHours?: number;
 }
 
 export async function collect(
@@ -53,7 +59,8 @@ export async function collect(
   const log = opts.log ?? ((m: string) => process.stderr.write(m + '\n'));
 
   const octokit = makeOctokit(secrets.githubToken);
-  const window = computeWindow(config.windowHours, now);
+  const windowHours = opts.windowHours ?? config.windowHours;
+  const window = computeWindow(windowHours, now);
   const resolver = new IdentityResolver(config.aliases);
   const isNoise = createNoiseMatcher(config.extraNoisePatterns);
   const buckets = new Map<string, Bucket>();
@@ -68,7 +75,7 @@ export async function collect(
   };
 
   const repos = config.repos.length ? config.repos : await listOrgRepos(octokit, config.org);
-  log(`herald: collecting ${config.org} over ${config.windowHours}h across ${repos.length} repo(s)`);
+  log(`herald: collecting ${config.org} over ${windowHours}h across ${repos.length} repo(s)`);
 
   for (const repo of repos) {
     try {
@@ -131,6 +138,7 @@ function toPersonActivity(
   const openedInWindow = (iso: string) => iso >= window.since && iso <= window.until;
   const totals: PersonActivity['totals'] = {
     commits: b.commits.length,
+    unshippedCommits: b.commits.filter((c) => c.unshipped).length,
     additions: b.commits.reduce((s, c) => s + c.additions, 0),
     deletions: b.commits.reduce((s, c) => s + c.deletions, 0),
     prsOpened: b.pullRequests.filter((p) => openedInWindow(p.createdAt)).length,

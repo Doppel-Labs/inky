@@ -38,6 +38,11 @@ export interface CommitActivity {
   url: string;
   /** ISO-8601 author timestamp. */
   authoredAt: string;
+  /** True if the commit is NOT on the repo's default branch — i.e. work in
+   *  progress on a feature branch, not yet shipped to main. */
+  unshipped: boolean;
+  /** A branch the commit lives on. Set for unshipped commits (the feature branch). */
+  branch?: string;
 }
 
 export interface PullRequestActivity {
@@ -89,6 +94,8 @@ export interface PersonActivity {
   issues: IssueActivity[];
   totals: {
     commits: number;
+    /** Commits on feature branches not yet merged to default — work in progress. */
+    unshippedCommits: number;
     additions: number;
     deletions: number;
     prsOpened: number;

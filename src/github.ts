@@ -68,7 +68,40 @@ export interface CommitRecord {
   commit: CommitActivity;
 }
 
-/** Fetch commits authored in the window across the repo's default branch history. */
+/** A commit list item from the GitHub API, paired with a branch we found it on. */
+interface RawCommit {
+  item: Awaited<ReturnType<Octokit['rest']['repos']['listCommits']>>['data'][number];
+  branch: string;
+}
+
+/** List commits in-window on a single branch; never throws (returns [] on error). */
+async function listBranchCommits(
+  octokit: Octokit,
+  org: string,
+  repo: string,
+  branch: string,
+  window: Window,
+): Promise<RawCommit['item'][]> {
+  try {
+    return await octokit.paginate(octokit.rest.repos.listCommits, {
+      owner: org,
+      repo,
+      sha: branch,
+      since: window.since,
+      until: window.until,
+      per_page: 100,
+    });
+  } catch {
+    return []; // branch may be gone, empty, or inaccessible — skip it
+  }
+}
+
+/**
+ * Fetch commits authored in the window across ALL branches of a repo, so work
+ * in progress on feature branches (not yet merged to the default branch) is
+ * captured — not just shipped work. Commits are deduped by SHA, and each is
+ * flagged `unshipped` when it isn't on the default branch.
+ */
 export async function fetchCommits(
   octokit: Octokit,
   org: string,
@@ -76,15 +109,38 @@ export async function fetchCommits(
   window: Window,
   isNoise: NoiseMatcher = isGeneratedPath,
 ): Promise<CommitRecord[]> {
-  const list = await octokit.paginate(octokit.rest.repos.listCommits, {
+  const info = await octokit.rest.repos.get({ owner: org, repo });
+  const defaultBranch = info.data.default_branch;
+
+  const branchList = await octokit.paginate(octokit.rest.repos.listBranches, {
     owner: org,
     repo,
-    since: window.since,
-    until: window.until,
     per_page: 100,
   });
+  // Default branch first so its commits register as "shipped" before we see
+  // the same SHAs on feature branches.
+  const branches = [defaultBranch, ...branchList.map((b) => b.name).filter((n) => n !== defaultBranch)];
 
-  return mapLimit(list, 5, async (c) => {
+  // Fetch each branch's in-window commits (bounded concurrency), then dedupe.
+  const perBranch = await mapLimit(branches, 5, async (branch) => ({
+    branch,
+    commits: await listBranchCommits(octokit, org, repo, branch, window),
+  }));
+
+  const shippedShas = new Set<string>();
+  const seen = new Set<string>();
+  const unique: RawCommit[] = [];
+  for (const { branch, commits } of perBranch) {
+    const isDefault = branch === defaultBranch;
+    for (const item of commits) {
+      if (isDefault) shippedShas.add(item.sha);
+      if (seen.has(item.sha)) continue;
+      seen.add(item.sha);
+      unique.push({ item, branch });
+    }
+  }
+
+  return mapLimit(unique, 5, async ({ item: c, branch }) => {
     const author: RawIdentity = {
       login: c.author?.login ?? null,
       email: c.commit.author?.email ?? null,
@@ -109,6 +165,7 @@ export async function fetchCommits(
     } catch {
       // best-effort: leave line counts at 0
     }
+    const unshipped = !shippedShas.has(c.sha);
     const commit: CommitActivity = {
       repo,
       sha: c.sha,
@@ -117,6 +174,8 @@ export async function fetchCommits(
       deletions,
       url: c.html_url,
       authoredAt: c.commit.author?.date ?? window.until,
+      unshipped,
+      branch: unshipped ? branch : undefined,
     };
     return { author, commit };
   });

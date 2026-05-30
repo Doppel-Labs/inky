@@ -18,11 +18,13 @@ function usage(): never {
   console.error(`herald — your team's daily standup, written for you
 
 Usage:
-  herald collect [--config <path>]              Fetch and normalize org activity (prints JSON)
-  herald standup [--config <path>] [--dry-run]  Build and deliver the standup
+  herald collect [opts]              Fetch and normalize org activity (prints JSON)
+  herald standup [opts] [--dry-run]  Build and deliver the standup
 
 Options:
   --config <path>   Config file (default: herald.config.json)
+  --days <n>        Window length in days (overrides config windowHours)
+  --hours <n>       Window length in hours (overrides config windowHours)
   --dry-run         Print the standup to stdout instead of posting to Discord
 
 Environment:
@@ -36,6 +38,13 @@ interface ParsedArgs {
   command: Command;
   configPath: string;
   dryRun: boolean;
+  windowHours?: number;
+}
+
+function parsePositiveNumber(raw: string | undefined): number {
+  const n = Number(raw);
+  if (!raw || !Number.isFinite(n) || n <= 0) usage();
+  return n;
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
@@ -43,37 +52,42 @@ function parseArgs(argv: string[]): ParsedArgs {
   if (!command || !COMMANDS.includes(command as Command)) usage();
   let configPath = 'herald.config.json';
   let dryRun = false;
+  let windowHours: number | undefined;
   for (let i = 0; i < rest.length; i++) {
     if (rest[i] === '--config') {
       const next = rest[i + 1];
       if (!next) usage();
       configPath = next;
       i++;
+    } else if (rest[i] === '--days') {
+      windowHours = parsePositiveNumber(rest[++i]) * 24;
+    } else if (rest[i] === '--hours') {
+      windowHours = parsePositiveNumber(rest[++i]);
     } else if (rest[i] === '--dry-run') {
       dryRun = true;
     } else {
       usage();
     }
   }
-  return { command: command as Command, configPath, dryRun };
+  return { command: command as Command, configPath, dryRun, windowHours };
 }
 
 async function main(): Promise<void> {
-  const { command, configPath, dryRun } = parseArgs(process.argv.slice(2));
+  const { command, configPath, dryRun, windowHours } = parseArgs(process.argv.slice(2));
   const config = loadConfig(configPath);
   const secrets = loadSecrets();
 
   switch (command) {
     case 'collect': {
       const { collect } = await import('./collect.js');
-      const activity = await collect(config, secrets);
+      const activity = await collect(config, secrets, { windowHours });
       process.stdout.write(JSON.stringify(activity, null, 2) + '\n');
       break;
     }
     case 'standup': {
       const { collect } = await import('./collect.js');
       const { renderMechanical } = await import('./render.js');
-      const activity = await collect(config, secrets);
+      const activity = await collect(config, secrets, { windowHours });
       const markdown = renderMechanical(activity);
 
       const webhookUrl = config.discord.webhookUrl;
