@@ -25,3 +25,6 @@ npm-debug.log*
 
 # Playwright MCP screenshots
 .playwright-mcp/
+
+# local standup output (scratch)
+.herald-output/

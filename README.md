@@ -79,6 +79,21 @@ endpoint (OpenAI-compatible providers only). The summary is constrained extracti
 over a pre-built digest, so a small model holds up — defaults favor cost. Run
 `herald standup --mechanical` to skip the AI entirely.
 
+### Report depth & stats
+
+- **Depth scales with the window.** A daily standup is a terse pulse; weekly and
+  monthly reviews get proportionally more detail (more sentences, more highlights).
+- **Stats lead the report.** A team stats panel renders first (numbers before
+  prose). `stats: "auto"` (default) shows it on weekly+ windows but not the daily
+  pulse; `"on"`/`"off"` force it. Override per run with `--stats` / `--no-stats`.
+  LOC is labeled *size, not score* — see [`docs/research/agentic-coding-metrics.md`](docs/research/agentic-coding-metrics.md).
+- **Per-person stats** (`statsPerPerson: true`, default) add a stat line under each
+  name, paired with the team panel (shown where it shows). `--stats-per-person`
+  forces them on even on the daily; set `false` to keep the post team-level only.
+- **Output style.** `format: "bullets"` (default) gives scannable bullet points per
+  person; `format: "prose"` (or `--format prose`) gives a narrative paragraph. The
+  project summary stays prose either way.
+
 ### Identity aliases
 
 People commit under multiple identities (work + personal email, multiple machines).
