@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildGroundingDigest, computeOrgTotals, summarize } from './summarize.js';
+import { buildGroundingDigest, computeOrgTotals, detailForWindow, summarize } from './summarize.js';
 import type { CreateMessageParams, MessageResponse, MessagesCreate } from './summarize.js';
 import type { OrgActivity, PersonActivity } from './types.js';
 
@@ -29,6 +29,20 @@ function person(login: string, over: Partial<PersonActivity> = {}): PersonActivi
     reviews: [],
     issues: [],
     totals: emptyTotals(),
+    ...over,
+  };
+}
+
+function commit(over: Partial<import('./types.js').CommitActivity> = {}) {
+  return {
+    repo: 'web',
+    sha: 'x',
+    message: 'do a thing',
+    additions: 10,
+    deletions: 2,
+    url: 'https://gh/web/commit/x',
+    authoredAt: window.until,
+    unshipped: false,
     ...over,
   };
 }
@@ -93,6 +107,31 @@ function fakeCreate(
     };
   };
 }
+
+test('detailForWindow scales depth with window length', () => {
+  const day = (n: number) => `2026-05-${String(n).padStart(2, '0')}T00:00:00.000Z`;
+  assert.equal(detailForWindow({ since: day(29), until: day(30) }).tier, 'daily');
+  assert.equal(detailForWindow({ since: day(27), until: day(30) }).tier, 'multi-day');
+  assert.equal(detailForWindow({ since: day(23), until: day(30) }).tier, 'weekly');
+  assert.equal(detailForWindow({ since: day(1), until: day(30) }).tier, 'monthly');
+  // longer windows get more room + more highlights
+  const daily = detailForWindow({ since: day(29), until: day(30) });
+  const weekly = detailForWindow({ since: day(23), until: day(30) });
+  assert.ok(weekly.maxHighlights > daily.maxHighlights);
+  assert.ok(weekly.commitCap > daily.commitCap);
+  assert.ok(weekly.outputTokens > daily.outputTokens);
+});
+
+test('buildGroundingDigest caps commits per the detail level', () => {
+  const many = Array.from({ length: 20 }, (_, i) =>
+    commit({ message: `change ${i}`, sha: String(i), unshipped: false }),
+  );
+  const p = person('dev', { commits: many, totals: { ...emptyTotals(), commits: 20 } });
+  const activity: OrgActivity = { org: 'Acme', window, people: [p] };
+  const daily = buildGroundingDigest(activity, detailForWindow(window)); // 24h → daily, cap 8
+  const shippedLines = daily.split('\n').filter((l) => /^- change \d+ \(web\)/.test(l));
+  assert.equal(shippedLines.length, 8);
+});
 
 test('computeOrgTotals rolls up per-person totals + distinct repos', () => {
   const activity: OrgActivity = {

@@ -20,6 +20,7 @@ import type {
   PersonActivity,
   PersonStandup,
   Standup,
+  Window,
 } from './types.js';
 
 // ── Narrow LLM-call interface (mocked in tests, wrapped over the SDK in prod) ──
@@ -87,10 +88,13 @@ Hard rules:
 - Summarize across commits — describe themes of work, not a list of every commit.
 - Reference concrete artifacts where natural: PR numbers as "#123", repo names,
   and call out work-in-progress (unshipped) effort explicitly.
-- Per person: 1–3 sentences, present tense ("Shipped…", "Working on…"). No filler,
-  no adjectives like "great"/"solid", no manager-speak.
-- The project summary: 1–3 sentences on what the team collectively moved today —
-  the through-line, what shipped vs. what's in flight. No per-person repetition.
+- Match the DEPTH TARGET given in the user message: short windows get a terse
+  update, longer windows get a proportionally more thorough one (more sentences,
+  more highlights). Never pad to hit a length — depth comes from real activity.
+- Per person: present tense ("Shipped…", "Working on…"). No filler, no adjectives
+  like "great"/"solid", no manager-speak.
+- The project summary: the through-line — what the team collectively moved, what
+  shipped vs. what's in flight. No per-person repetition.
 - For any team-wide or aggregate count (total PRs merged, commits, contributors,
   repos), use ONLY the "Org totals" figures given in the digest, verbatim. Never
   sum or estimate across people yourself — if a number isn't in Org totals, don't
@@ -107,7 +111,7 @@ const EMIT_TOOL: Tool = {
     properties: {
       projectSummary: {
         type: 'string',
-        description: 'Project-wide summary, 1–3 sentences, grounded in the digest.',
+        description: 'Project-wide summary, grounded in the digest. Length per the depth target.',
       },
       people: {
         type: 'array',
@@ -116,7 +120,7 @@ const EMIT_TOOL: Tool = {
           type: 'object',
           properties: {
             login: { type: 'string', description: 'The GitHub login exactly as in the digest.' },
-            narrative: { type: 'string', description: '1–3 sentence narrative for this person.' },
+            narrative: { type: 'string', description: 'Narrative for this person; length per the depth target.' },
             highlights: {
               type: 'array',
               description: 'Up to 3 short bullet highlights with refs (PR #, repo). Optional.',
@@ -149,6 +153,49 @@ const StandupOutputSchema = z.object({
 
 function fmtNum(n: number): string {
   return n.toLocaleString('en-US');
+}
+
+/**
+ * How thorough the write-up should be, scaled to the window length. A daily
+ * standup is a terse pulse; a weekly or monthly review earns proportionally more
+ * depth — more sentences per person, more highlights, and more raw activity in
+ * the digest for the model to draw on. Depth still comes from real work: these
+ * are ceilings, not quotas.
+ */
+export interface DetailLevel {
+  tier: 'daily' | 'multi-day' | 'weekly' | 'monthly' | 'long-range';
+  /** Target sentences per person, e.g. "1–2". */
+  perPersonSentences: string;
+  /** Target sentences for the project summary. */
+  projectSentences: string;
+  /** Max highlight bullets per person. */
+  maxHighlights: number;
+  /** How many commits/PRs per person to include in the digest. */
+  commitCap: number;
+  prCap: number;
+  /** Output-token budget — longer reports need more room so they aren't truncated. */
+  outputTokens: number;
+}
+
+/** Pick a detail level from the window length (roughly: longer window → longer report). */
+export function detailForWindow(window: Window): DetailLevel {
+  const hours = Math.round(
+    (new Date(window.until).getTime() - new Date(window.since).getTime()) / 3_600_000,
+  );
+  const days = hours / 24;
+  if (hours <= 26) {
+    return { tier: 'daily', perPersonSentences: '1–2', projectSentences: '1–2', maxHighlights: 3, commitCap: 8, prCap: 6, outputTokens: 1024 };
+  }
+  if (days <= 4) {
+    return { tier: 'multi-day', perPersonSentences: '2–3', projectSentences: '2', maxHighlights: 4, commitCap: 12, prCap: 8, outputTokens: 1536 };
+  }
+  if (days <= 10) {
+    return { tier: 'weekly', perPersonSentences: '2–4', projectSentences: '2–3', maxHighlights: 6, commitCap: 18, prCap: 12, outputTokens: 2560 };
+  }
+  if (days <= 40) {
+    return { tier: 'monthly', perPersonSentences: '3–5', projectSentences: '3–4', maxHighlights: 8, commitCap: 30, prCap: 20, outputTokens: 3584 };
+  }
+  return { tier: 'long-range', perPersonSentences: '4–6', projectSentences: '4–5', maxHighlights: 10, commitCap: 45, prCap: 30, outputTokens: 4096 };
 }
 
 /** Deduplicate commits by message+repo (rebases/cherry-picks repeat), drop merges. */
@@ -243,7 +290,10 @@ export function computeOrgTotals(activity: OrgActivity): {
  * Build the factual per-person digest the model summarizes. This — not raw API
  * data — is the model's entire source of truth, so it must be complete and clean.
  */
-export function buildGroundingDigest(activity: OrgActivity): string {
+export function buildGroundingDigest(
+  activity: OrgActivity,
+  detail: DetailLevel = detailForWindow(activity.window),
+): string {
   const { org, window, people } = activity;
   const t = computeOrgTotals(activity);
   const lines: string[] = [];
@@ -274,14 +324,14 @@ export function buildGroundingDigest(activity: OrgActivity): string {
     const mergedFeature = p.pullRequests.filter((pr) => pr.state === 'merged');
     if (mergedFeature.length) {
       lines.push('Merged PRs:');
-      for (const pr of mergedFeature.slice(0, 10)) {
+      for (const pr of mergedFeature.slice(0, detail.prCap)) {
         lines.push(`- #${pr.number} ${pr.title} (${pr.repo})`);
       }
     }
     const openPrs = p.pullRequests.filter((pr) => pr.state === 'open' || pr.state === 'draft');
     if (openPrs.length) {
       lines.push('Open PRs:');
-      for (const pr of openPrs.slice(0, 10)) {
+      for (const pr of openPrs.slice(0, detail.prCap)) {
         lines.push(`- #${pr.number} ${pr.title} (${pr.repo})${pr.state === 'draft' ? ' [draft]' : ''}`);
       }
     }
@@ -291,13 +341,13 @@ export function buildGroundingDigest(activity: OrgActivity): string {
     const shipped = commits.filter((c) => !c.unshipped);
     if (unshipped.length) {
       lines.push('Work in progress (unshipped commits on feature branches):');
-      for (const c of unshipped.slice(0, 15)) {
+      for (const c of unshipped.slice(0, detail.commitCap)) {
         lines.push(`- ${c.message} (${c.repo}${c.branch ? `@${c.branch}` : ''})`);
       }
     }
     if (shipped.length) {
       lines.push('Shipped commits (on default branch):');
-      for (const c of shipped.slice(0, 15)) {
+      for (const c of shipped.slice(0, detail.commitCap)) {
         lines.push(`- ${c.message} (${c.repo})`);
       }
     }
@@ -363,15 +413,22 @@ export async function summarize(activity: OrgActivity, opts: SummarizeOptions): 
     return { org, window, projectSummary: 'No GitHub activity in this window.', people: [] };
   }
 
-  const digest = buildGroundingDigest(activity);
+  const detail = detailForWindow(window);
+  const digest = buildGroundingDigest(activity, detail);
+  const depthTarget =
+    `DEPTH TARGET — this is a ${detail.tier} window (${windowLabel(window)}). Scale the ` +
+    `write-up to match: roughly ${detail.perPersonSentences} sentences per person and up ` +
+    `to ${detail.maxHighlights} highlight bullets each, with a ${detail.projectSentences}-` +
+    `sentence project summary. A longer window means a more thorough report — but only ` +
+    `from real activity, never padding.`;
   const res = await opts.create({
     model: opts.model ?? 'claude-sonnet-4-6',
-    max_tokens: opts.maxTokens ?? 2048,
+    max_tokens: opts.maxTokens ?? detail.outputTokens,
     system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
     messages: [
       {
         role: 'user',
-        content: `Here is today's factual activity digest. Write the standup.\n\n${digest}`,
+        content: `${depthTarget}\n\nHere is the factual activity digest. Write the standup.\n\n${digest}`,
       },
     ],
     tools: [EMIT_TOOL],
