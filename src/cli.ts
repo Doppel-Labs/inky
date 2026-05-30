@@ -18,8 +18,12 @@ function usage(): never {
   console.error(`herald — your team's daily standup, written for you
 
 Usage:
-  herald collect [--config <path>]   Fetch and normalize org activity (prints JSON)
-  herald standup [--config <path>]   Build and deliver the standup
+  herald collect [--config <path>]              Fetch and normalize org activity (prints JSON)
+  herald standup [--config <path>] [--dry-run]  Build and deliver the standup
+
+Options:
+  --config <path>   Config file (default: herald.config.json)
+  --dry-run         Print the standup to stdout instead of posting to Discord
 
 Environment:
   GITHUB_TOKEN        GitHub PAT / fine-grained token (repo read)
@@ -28,23 +32,34 @@ Environment:
   process.exit(2);
 }
 
-function parseArgs(argv: string[]): { command: Command; configPath: string } {
+interface ParsedArgs {
+  command: Command;
+  configPath: string;
+  dryRun: boolean;
+}
+
+function parseArgs(argv: string[]): ParsedArgs {
   const [command, ...rest] = argv;
   if (!command || !COMMANDS.includes(command as Command)) usage();
   let configPath = 'herald.config.json';
+  let dryRun = false;
   for (let i = 0; i < rest.length; i++) {
     if (rest[i] === '--config') {
       const next = rest[i + 1];
       if (!next) usage();
       configPath = next;
       i++;
+    } else if (rest[i] === '--dry-run') {
+      dryRun = true;
+    } else {
+      usage();
     }
   }
-  return { command: command as Command, configPath };
+  return { command: command as Command, configPath, dryRun };
 }
 
 async function main(): Promise<void> {
-  const { command, configPath } = parseArgs(process.argv.slice(2));
+  const { command, configPath, dryRun } = parseArgs(process.argv.slice(2));
   const config = loadConfig(configPath);
   const secrets = loadSecrets();
 
@@ -56,8 +71,23 @@ async function main(): Promise<void> {
       break;
     }
     case 'standup': {
-      console.error('standup: not implemented yet (Phases 3–4). Use `herald collect` for now.');
-      process.exit(1);
+      const { collect } = await import('./collect.js');
+      const { renderMechanical } = await import('./render.js');
+      const activity = await collect(config, secrets);
+      const markdown = renderMechanical(activity);
+
+      const webhookUrl = config.discord.webhookUrl;
+      if (dryRun || !webhookUrl) {
+        if (!webhookUrl && !dryRun) {
+          console.error('standup: no discord.webhookUrl configured — printing instead.');
+        }
+        process.stdout.write(markdown);
+        break;
+      }
+      const { postStandupToDiscord } = await import('./discord.js');
+      const { messages, embeds } = await postStandupToDiscord(webhookUrl, markdown);
+      console.error(`standup: posted ${embeds} embed(s) in ${messages} message(s) to Discord.`);
+      break;
     }
   }
 }
