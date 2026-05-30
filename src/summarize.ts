@@ -17,6 +17,7 @@ import { windowLabel } from './render.js';
 import type {
   CommitActivity,
   OrgActivity,
+  OrgTotals,
   PersonActivity,
   PersonStandup,
   Standup,
@@ -232,19 +233,7 @@ function personStatLine(p: PersonActivity): string {
  * merged"), and a model summing across people drifts — so we hand it verified
  * totals and forbid it from doing its own arithmetic.
  */
-export function computeOrgTotals(activity: OrgActivity): {
-  contributors: number;
-  commits: number;
-  unshippedCommits: number;
-  prsOpened: number;
-  prsMerged: number;
-  reviews: number;
-  issuesOpened: number;
-  issuesClosed: number;
-  repos: number;
-  additions: number;
-  deletions: number;
-} {
+export function computeOrgTotals(activity: OrgActivity): OrgTotals {
   const repos = new Set<string>();
   let commits = 0,
     unshippedCommits = 0,
@@ -452,8 +441,17 @@ export async function summarize(activity: OrgActivity, opts: SummarizeOptions): 
       person: p.person,
       narrative: entry?.narrative?.trim() || fallbackNarrative(p),
       highlights: entry?.highlights ?? [],
+      totals: p.totals,
     };
   });
 
-  return { org, window, projectSummary: parsed.projectSummary.trim(), people: peopleStandups };
+  // Carry verified rollups so render() can show an optional stats panel without
+  // recomputing or letting the model near the numbers.
+  return {
+    org,
+    window,
+    projectSummary: parsed.projectSummary.trim(),
+    people: peopleStandups,
+    teamTotals: computeOrgTotals(activity),
+  };
 }

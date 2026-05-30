@@ -161,6 +161,63 @@ test('renderStandup renders the project summary and per-person narratives', () =
   assert.match(md, /AI-summarized/);
 });
 
+function standupWithStats(): Standup {
+  return {
+    org: 'Acme',
+    window: { since: '2026-05-23T00:00:00.000Z', until: '2026-05-30T00:00:00.000Z' },
+    projectSummary: 'Busy week.',
+    teamTotals: {
+      contributors: 2,
+      commits: 40,
+      unshippedCommits: 12,
+      prsOpened: 9,
+      prsMerged: 7,
+      reviews: 3,
+      issuesOpened: 0,
+      issuesClosed: 0,
+      repos: 2,
+      additions: 12345,
+      deletions: 678,
+    },
+    people: [
+      {
+        person: { login: 'dev', displayName: 'Dev', emails: [] },
+        narrative: 'Did things.',
+        highlights: [],
+        totals: {
+          commits: 30,
+          unshippedCommits: 12,
+          additions: 12000,
+          deletions: 600,
+          prsOpened: 5,
+          prsMerged: 4,
+          reviewsGiven: 3,
+          issuesOpened: 0,
+          issuesClosed: 0,
+          repos: 2,
+        },
+      },
+    ],
+  };
+}
+
+test('renderStandup shows the team stats panel only when enabled', () => {
+  const s = standupWithStats();
+  assert.doesNotMatch(renderStandup(s), /Team stats/); // default off
+  const withStats = renderStandup(s, { showStats: true });
+  assert.match(withStats, /### 📊 Team stats — this week/);
+  assert.match(withStats, /\*\*7\*\* PRs merged, \*\*9\*\* opened/);
+  assert.match(withStats, /\*\*40\*\* commits \(\*\*12\*\* unshipped\)/);
+  assert.match(withStats, /size, not score/);
+});
+
+test('renderStandup adds a per-person stat line only with statsPerPerson', () => {
+  const s = standupWithStats();
+  assert.doesNotMatch(renderStandup(s, { showStats: true }), /30 commits/);
+  const perPerson = renderStandup(s, { statsPerPerson: true });
+  assert.match(perPerson, /\*30 commits \(12 unshipped\) · PRs: 4 merged\/5 opened · 3 reviews/);
+});
+
 test('renderStandup handles an empty window', () => {
   const md = renderStandup({ org: 'Acme', window, projectSummary: '', people: [] });
   assert.match(md, /# 📋 Daily Standup — Acme/);

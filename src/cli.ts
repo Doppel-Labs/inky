@@ -29,6 +29,9 @@ Options:
   --hours <n>       Window length in hours (overrides config windowHours)
   --provider <p>    LLM provider: anthropic | groq | openai (overrides config)
   --model <id>      LLM model id (overrides config model / provider default)
+  --stats           Force the team stats panel on (default: auto on weekly+)
+  --no-stats        Force the team stats panel off
+  --stats-per-person  Add a per-person stat line under each name
   --dry-run         Print the standup to stdout instead of posting to Discord
   --mechanical      Skip the AI summary; use the deterministic renderer
 
@@ -47,6 +50,9 @@ interface ParsedArgs {
   windowHours?: number;
   model?: string;
   provider?: Provider;
+  /** undefined = use config (auto); true/false = forced by --stats/--no-stats. */
+  stats?: boolean;
+  statsPerPerson?: boolean;
 }
 
 function parsePositiveNumber(raw: string | undefined): number {
@@ -64,6 +70,8 @@ function parseArgs(argv: string[]): ParsedArgs {
   let windowHours: number | undefined;
   let model: string | undefined;
   let provider: Provider | undefined;
+  let stats: boolean | undefined;
+  let statsPerPerson: boolean | undefined;
   for (let i = 0; i < rest.length; i++) {
     if (rest[i] === '--config') {
       const next = rest[i + 1];
@@ -81,6 +89,12 @@ function parseArgs(argv: string[]): ParsedArgs {
       const next = rest[++i];
       if (!next || !PROVIDERS.includes(next as Provider)) usage();
       provider = next as Provider;
+    } else if (rest[i] === '--stats') {
+      stats = true;
+    } else if (rest[i] === '--no-stats') {
+      stats = false;
+    } else if (rest[i] === '--stats-per-person') {
+      statsPerPerson = true;
     } else if (rest[i] === '--dry-run') {
       dryRun = true;
     } else if (rest[i] === '--mechanical') {
@@ -89,13 +103,22 @@ function parseArgs(argv: string[]): ParsedArgs {
       usage();
     }
   }
-  return { command: command as Command, configPath, dryRun, mechanical, windowHours, model, provider };
+  return {
+    command: command as Command,
+    configPath,
+    dryRun,
+    mechanical,
+    windowHours,
+    model,
+    provider,
+    stats,
+    statsPerPerson,
+  };
 }
 
 async function main(): Promise<void> {
-  const { command, configPath, dryRun, mechanical, windowHours, model, provider } = parseArgs(
-    process.argv.slice(2),
-  );
+  const { command, configPath, dryRun, mechanical, windowHours, model, provider, stats, statsPerPerson } =
+    parseArgs(process.argv.slice(2));
   let config = loadConfig(configPath);
   // CLI overrides (for quick A/B). Switching provider drops the configured
   // model — it belongs to the old provider — so the new provider's default
@@ -116,6 +139,14 @@ async function main(): Promise<void> {
       const { renderMechanical, renderStandup } = await import('./render.js');
       const activity = await collect(config, secrets, { windowHours });
 
+      // Stats panel: --stats/--no-stats force it; otherwise config.stats, where
+      // 'auto' shows it on weekly+ windows but not the daily pulse.
+      const { detailForWindow } = await import('./summarize.js');
+      const isDaily = detailForWindow(activity.window).tier === 'daily';
+      const statsMode = config.stats; // 'auto' | 'on' | 'off'
+      const showStats = stats ?? (statsMode === 'on' ? true : statsMode === 'off' ? false : !isDaily);
+      const showPerPerson = statsPerPerson ?? config.statsPerPerson;
+
       // AI summary when a provider key is present and not explicitly opted out;
       // otherwise the deterministic mechanical render (also the failure fallback).
       const { resolveLlm, PROVIDER_ENV } = await import('./llm.js');
@@ -130,7 +161,7 @@ async function main(): Promise<void> {
             log: (m) => console.error(m),
           });
           console.error(`standup: summarized with ${llm.provider} (${llm.model}).`);
-          markdown = renderStandup(standup);
+          markdown = renderStandup(standup, { showStats, statsPerPerson: showPerPerson });
         } catch (err) {
           console.error(
             `standup: AI summary failed (${(err as Error).message}); falling back to mechanical.`,

@@ -14,7 +14,9 @@
 import type {
   CommitActivity,
   OrgActivity,
+  OrgTotals,
   PersonActivity,
+  PersonStandup,
   PullRequestActivity,
   Standup,
 } from './types.js';
@@ -126,6 +128,10 @@ export interface RenderOptions {
   title?: string;
   /** Max commit lines to show per person (default 5). */
   commitSample?: number;
+  /** Show the team-level stats panel (renderStandup only). */
+  showStats?: boolean;
+  /** Also show a per-person stat line under each name (renderStandup only). */
+  statsPerPerson?: boolean;
 }
 
 /** Render the full mechanical standup as Discord-flavored markdown. */
@@ -163,11 +169,62 @@ export function renderMechanical(activity: OrgActivity, opts: RenderOptions = {}
   return out.join('\n').trimEnd() + '\n';
 }
 
+/** A short relative phrase for stats headings, from the window length. */
+function statsPeriod(window: { since: string; until: string }): string {
+  const hours = Math.round(
+    (new Date(window.until).getTime() - new Date(window.since).getTime()) / 3_600_000,
+  );
+  if (hours <= 26) return 'today';
+  const days = Math.round(hours / 24);
+  if (days === 7) return 'this week';
+  if (days >= 28 && days <= 31) return 'this month';
+  return `last ${days} days`;
+}
+
+/**
+ * Team-level stats panel. Deliberately team-only and labels lines as size rather
+ * than score — these inform, they are not a leaderboard (see docs/research).
+ */
+function teamStatsPanel(t: OrgTotals, window: { since: string; until: string }): string[] {
+  const lines = [`### 📊 Team stats — ${statsPeriod(window)}`];
+  lines.push(
+    `- **${t.prsMerged}** PRs merged` + (t.prsOpened ? `, **${t.prsOpened}** opened` : ''),
+  );
+  lines.push(
+    `- **${t.commits}** commits` +
+      (t.unshippedCommits ? ` (**${t.unshippedCommits}** unshipped)` : ''),
+  );
+  if (t.reviews) lines.push(`- **${t.reviews}** reviews given`);
+  if (t.issuesOpened || t.issuesClosed) {
+    lines.push(`- issues: **${t.issuesOpened}** opened, **${t.issuesClosed}** closed`);
+  }
+  lines.push(`- **${t.repos}** repo${t.repos === 1 ? '' : 's'} touched`);
+  lines.push(`- **+${fmtNum(t.additions)} / −${fmtNum(t.deletions)}** lines _(size, not score)_`);
+  return lines;
+}
+
+/** A compact per-person stat line, omitting zero-valued parts. */
+function personTotalsLine(t: NonNullable<PersonStandup['totals']>): string {
+  const parts: string[] = [];
+  if (t.commits) {
+    parts.push(`${t.commits} commit${t.commits === 1 ? '' : 's'}` + (t.unshippedCommits ? ` (${t.unshippedCommits} unshipped)` : ''));
+  }
+  const prBits: string[] = [];
+  if (t.prsMerged) prBits.push(`${t.prsMerged} merged`);
+  if (t.prsOpened) prBits.push(`${t.prsOpened} opened`);
+  if (prBits.length) parts.push(`PRs: ${prBits.join('/')}`);
+  if (t.reviewsGiven) parts.push(`${t.reviewsGiven} review${t.reviewsGiven === 1 ? '' : 's'}`);
+  if (t.additions || t.deletions) parts.push(`+${fmtNum(t.additions)}/−${fmtNum(t.deletions)}`);
+  if (t.repos > 1) parts.push(`${t.repos} repos`);
+  return parts.join(' · ');
+}
+
 /**
  * Render an AI-written Standup (output of summarize()) as Discord-flavored
  * markdown. Same shell as renderMechanical — title, span, footer — but the body
  * is the model's prose instead of mechanical bullet lines. Highlights, if any,
- * follow each narrative as bullets (they already carry their own refs).
+ * follow each narrative as bullets (they already carry their own refs). An
+ * optional team stats panel and per-person stat lines are gated by opts.
  */
 export function renderStandup(standup: Standup, opts: RenderOptions = {}): string {
   const { org, window, projectSummary, people, statusVsPlan } = standup;
@@ -185,6 +242,11 @@ export function renderStandup(standup: Standup, opts: RenderOptions = {}): strin
     out.push('');
   }
 
+  if (opts.showStats && standup.teamTotals) {
+    for (const line of teamStatsPanel(standup.teamTotals, window)) out.push(line);
+    out.push('');
+  }
+
   if (people.length === 0) {
     out.push('_No GitHub activity in this window._');
     return out.join('\n').trimEnd() + '\n';
@@ -196,6 +258,10 @@ export function renderStandup(standup: Standup, opts: RenderOptions = {}): strin
         ? `${p.person.displayName} (\`${p.person.login}\`)`
         : `\`${p.person.login}\``;
     out.push(`## ${name}`);
+    if (opts.statsPerPerson && p.totals) {
+      const line = personTotalsLine(p.totals);
+      if (line) out.push(`*${line}*`);
+    }
     if (p.narrative) out.push(p.narrative);
     for (const h of p.highlights) out.push(`- ${h}`);
     out.push('');

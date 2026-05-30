@@ -55,6 +55,16 @@ export const ConfigSchema = z.object({
    * Llama for groq, GPT for openai). Key itself always comes from env, not here.
    */
   model: z.string().optional(),
+  /**
+   * Team stats panel in the AI standup: 'auto' shows it on weekly+ windows but
+   * not the daily pulse; 'on' always; 'off' never. CLI --stats/--no-stats override.
+   */
+  stats: z.enum(['auto', 'on', 'off']).default('auto'),
+  /**
+   * Add a per-person stat line under each name. Off by default to keep the shared
+   * post team-level (not a leaderboard); CLI --stats-per-person turns it on.
+   */
+  statsPerPerson: z.boolean().default(false),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

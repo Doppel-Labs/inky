@@ -118,6 +118,21 @@ export interface OrgActivity {
   people: PersonActivity[];
 }
 
+/** Org-wide rollups for the window, computed mechanically (never model-counted). */
+export interface OrgTotals {
+  contributors: number;
+  commits: number;
+  unshippedCommits: number;
+  prsOpened: number;
+  prsMerged: number;
+  reviews: number;
+  issuesOpened: number;
+  issuesClosed: number;
+  repos: number;
+  additions: number;
+  deletions: number;
+}
+
 /** One person's section of the rendered standup. Output of summarize(). */
 export interface PersonStandup {
   person: Person;
@@ -125,6 +140,8 @@ export interface PersonStandup {
   narrative: string;
   /** Optional short bullet highlights (e.g. notable PRs), with refs. */
   highlights: string[];
+  /** This person's raw totals, carried for an optional per-person stats line. */
+  totals?: PersonActivity['totals'];
 }
 
 /** The full standup for a day. Output of summarize(), input to render(). */
@@ -134,6 +151,8 @@ export interface Standup {
   /** AI-written org-wide summary: where the project stands today. */
   projectSummary: string;
   people: PersonStandup[];
+  /** Verified team-wide rollups, carried for an optional stats panel. */
+  teamTotals?: OrgTotals;
   /** Phase 5: status reconciled against a task tracker / roadmap. */
   statusVsPlan?: string;
 }
