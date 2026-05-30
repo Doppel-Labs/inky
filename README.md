@@ -20,7 +20,7 @@ for the full spec, competitive analysis, and roadmap.
 | 0 | Scaffold: TS project, config schema, core types | ✅ |
 | 1 | `collect()` — GitHub API fetch + identity aliasing | ✅ |
 | 2 | `normalize()` + `render()` — mechanical digest, LOC filtering, Discord delivery | ✅ |
-| 3 | `summarize()` — AI-written standup (Anthropic, BYO key) | 🚧 |
+| 3 | `summarize()` — AI-written standup (BYO key; Anthropic/Groq/OpenAI) | ✅ |
 | 4 | Trigger + delivery — cron + `/standup` slash command | — |
 | 5 | `reconcile()` — status vs roadmap (paid hook) | — |
 | 6 | Hosted multi-tenant tier + dashboard (paid) | — |
@@ -59,8 +59,23 @@ for a secure, least-privilege (read-only) setup.
 ## Configuration
 
 - **`herald.config.json`** — non-secret config: org, repos, window, identity
-  aliases, Discord target, model. Copy from `herald.config.example.json`.
-- **`.env`** — secrets only (`GITHUB_TOKEN`, `ANTHROPIC_API_KEY`). Never committed.
+  aliases, Discord target, LLM provider/model. Copy from `herald.config.example.json`.
+- **`.env`** — secrets only (`GITHUB_TOKEN`, and one LLM key). Never committed.
+
+### LLM provider (the AI summary)
+
+The summary writer is provider-agnostic — one swappable call seam. Pick a
+`provider` in config and set the matching key in `.env`; only one key is needed,
+and with none, Herald falls back to the deterministic mechanical render.
+
+| `provider` | Key (env) | Default model | Notes |
+|---|---|---|---|
+| `anthropic` (default) | `ANTHROPIC_API_KEY` | `claude-opus-4-8` | Best grounded quality. |
+| `groq` | `GROQ_API_KEY` | `llama-3.3-70b-versatile` | Fast, cheap, open-weight. |
+| `openai` | `OPENAI_API_KEY` | `gpt-4o-mini` | OpenAI, or any OpenAI-compatible endpoint via `baseUrl` (OpenRouter, local Ollama). |
+
+`model` overrides the default; `baseUrl` overrides the endpoint (OpenAI-compatible
+providers only). Run `herald standup --mechanical` to skip the AI entirely.
 
 ### Identity aliases
 

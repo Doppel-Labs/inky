@@ -116,7 +116,9 @@ Design decisions made during implementation, captured so they survive context co
 - **Window-aware title:** `windowLabel` derives heading from window length (Daily / Weekly / N-Day / "last Nh"); not hardcoded "Daily".
 - **Adjustable windows:** `collect()` takes a `windowHours` override; CLI `--days`/`--hours`. Groundwork for Phase 4 queryable slash commands (e.g. `/standup last 3 days`).
 - **Line counts kept** in output for now (user OK with the mild eval-y framing). Revisit if framing becomes a concern.
-- **Secrets:** only from env (`GITHUB_TOKEN`/`GH_TOKEN`, `ANTHROPIC_API_KEY`); `herald.config.json` is gitignored; token never leaves the machine. Least-privilege fine-grained PAT documented in `docs/github-token-setup.md`.
+- **Secrets:** only from env (`GITHUB_TOKEN`/`GH_TOKEN`, and one LLM key — `ANTHROPIC_API_KEY`/`GROQ_API_KEY`/`OPENAI_API_KEY`); `herald.config.json` is gitignored; token never leaves the machine. Least-privilege fine-grained PAT documented in `docs/github-token-setup.md`.
+- **summarize() is grounded + structured (Phase 3):** one model call over a factual digest (built from the same activity `renderMechanical` shows); the model is *forced* to call an `emit_standup` tool, so output is structured (maps by login), never free-form-parsed. Missing people fall back to factual stat lines. System prompt forbids invention. `renderStandup()` turns the `Standup` into Discord markdown.
+- **LLM call is injected, provider-agnostic:** `summarize()` depends on a narrow `MessagesCreate` interface (mirrors `anthropic.messages.create`), so it's unit-tested with a fake — like the Discord layer. `resolveLlm(config, secrets)` picks the adapter from `config.provider`: **anthropic** (default, `anthropic.ts`, best grounded quality) or **groq**/**openai** (`openai-compat.ts`, one fetch-based OpenAI-compatible adapter; `baseUrl` override covers OpenRouter/Ollama). Decision (user, 2026-05-30): keep Claude default for quality, add Groq behind the same seam rather than switching — fits open-core BYO-key. Prompt caching kept but noted to mostly help the burst/slash-command case, not once-daily calls (5-min TTL).
 - **Discord delivery:** posts as **embeds** (so masked PR links render), chunked 4096/embed, 10 embeds/message, 429 backoff. **Not yet tested against a real webhook** — user deferred; unit-tested with injected fetch + `--dry-run`.
 - **Git hygiene:** explicit `git add <paths>` (no `-A`), no Claude co-author lines. Commit per milestone.
 
@@ -130,9 +132,10 @@ Show unshipped work ✓ · clean promotion-PR noise ✓ · adjustable time windo
 
 ## 10. Current status (as of 2026-05-30)
 
-- **Phases 0–2 complete and committed** (~12 commits on `main`, 29 tests passing).
-- `herald collect` and `herald standup --dry-run [--days N|--hours N]` work live against Doppel-Labs.
-- **Next: Phase 3 — `summarize()`** (Anthropic SDK, BYO key, prompt caching): turn the mechanical activity into AI-written per-person prose + a project-wide summary. Build with a mocked client first (like the Discord layer), show structure, then run live once an `ANTHROPIC_API_KEY` is set. Must ground every claim in real activity (no hallucination); reuse `renderMechanical` output as the factual base.
+- **Phases 0–3 complete and committed** (~14 commits on `main`, 47 tests passing).
+- `herald collect` and `herald standup --dry-run [--days N|--hours N] [--mechanical]` work live against Doppel-Labs.
+- **Phase 3 (`summarize()`) done:** AI-written per-person prose + project summary, grounded in a factual digest, structured via a forced `emit_standup` tool call. Provider-agnostic (Anthropic default; Groq/OpenAI via OpenAI-compatible adapter). Built + unit-tested against a fake client. **Live AI run still deferred** — no `ANTHROPIC_API_KEY`/`GROQ_API_KEY` set yet; verified end-to-end through the mechanical fallback. Set a key and run `herald standup --dry-run` to see real AI output.
+- **Next: Phase 4 — trigger + delivery:** cron schedule + Discord `/standup` slash command (queryable windows, leveraging the `windowHours` override already in place), and the real Discord webhook post (deferred from Phase 2).
 
 ## 11. Original immediate next step (historical)
 

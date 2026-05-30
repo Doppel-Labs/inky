@@ -37,8 +37,24 @@ export const ConfigSchema = z.object({
       channelId: z.string().optional(),
     })
     .default({}),
-  /** LLM tuning. Phase 3. Key itself comes from env (ANTHROPIC_API_KEY). */
-  model: z.string().default('claude-opus-4-8'),
+  /**
+   * Which LLM provider writes the summary. The core is provider-agnostic (one
+   * injected call seam); these just pick the adapter and key:
+   *   - anthropic: Claude (best grounded quality; the default). Key: ANTHROPIC_API_KEY.
+   *   - groq:      open-weight models on Groq (fast/cheap). Key: GROQ_API_KEY.
+   *   - openai:    OpenAI or any OpenAI-compatible endpoint. Key: OPENAI_API_KEY.
+   */
+  provider: z.enum(['anthropic', 'groq', 'openai']).default('anthropic'),
+  /**
+   * Override the API base URL (OpenAI-compatible providers only — Groq, OpenAI,
+   * OpenRouter, a local Ollama, etc.). Omit to use the provider's default.
+   */
+  baseUrl: z.string().url().optional(),
+  /**
+   * Model id. Omit to use a sensible per-provider default (Claude for anthropic,
+   * Llama for groq, GPT for openai). Key itself always comes from env, not here.
+   */
+  model: z.string().optional(),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -47,6 +63,8 @@ export type Config = z.infer<typeof ConfigSchema>;
 export interface Secrets {
   githubToken: string;
   anthropicApiKey?: string;
+  groqApiKey?: string;
+  openaiApiKey?: string;
 }
 
 export function loadSecrets(env: NodeJS.ProcessEnv = process.env): Secrets {
@@ -59,6 +77,8 @@ export function loadSecrets(env: NodeJS.ProcessEnv = process.env): Secrets {
   return {
     githubToken,
     anthropicApiKey: env.ANTHROPIC_API_KEY,
+    groqApiKey: env.GROQ_API_KEY,
+    openaiApiKey: env.OPENAI_API_KEY,
   };
 }
 

@@ -94,20 +94,20 @@ async function main(): Promise<void> {
       const { renderMechanical, renderStandup } = await import('./render.js');
       const activity = await collect(config, secrets, { windowHours });
 
-      // AI summary when a key is present and not explicitly opted out; otherwise
-      // the deterministic mechanical render (also the fallback if a call fails).
-      const useAi = !mechanical && Boolean(secrets.anthropicApiKey);
+      // AI summary when a provider key is present and not explicitly opted out;
+      // otherwise the deterministic mechanical render (also the failure fallback).
+      const { resolveLlm, PROVIDER_ENV } = await import('./llm.js');
+      const llm = mechanical ? null : resolveLlm(config, secrets);
       let markdown: string;
-      if (useAi) {
+      if (llm) {
         try {
           const { summarize } = await import('./summarize.js');
-          const { makeMessagesCreate } = await import('./anthropic.js');
-          const create = makeMessagesCreate(secrets.anthropicApiKey!);
           const standup = await summarize(activity, {
-            create,
-            model: config.model,
+            create: llm.create,
+            model: llm.model,
             log: (m) => console.error(m),
           });
+          console.error(`standup: summarized with ${llm.provider} (${llm.model}).`);
           markdown = renderStandup(standup);
         } catch (err) {
           console.error(
@@ -117,7 +117,9 @@ async function main(): Promise<void> {
         }
       } else {
         if (!mechanical) {
-          console.error('standup: no ANTHROPIC_API_KEY set — using mechanical render.');
+          console.error(
+            `standup: no ${PROVIDER_ENV[config.provider]} set for provider '${config.provider}' — using mechanical render.`,
+          );
         }
         markdown = renderMechanical(activity);
       }

@@ -10,5 +10,6 @@
     "bob-work": ["Bob", "bob@Bobs-MacBook-Pro.local"]
   },
   "discord": {},
+  "provider": "anthropic",
   "model": "claude-opus-4-8"
 }
