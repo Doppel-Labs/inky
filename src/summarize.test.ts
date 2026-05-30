@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildGroundingDigest, summarize } from './summarize.js';
+import { buildGroundingDigest, computeOrgTotals, summarize } from './summarize.js';
 import type { CreateMessageParams, MessageResponse, MessagesCreate } from './summarize.js';
 import type { OrgActivity, PersonActivity } from './types.js';
 
@@ -93,6 +93,40 @@ function fakeCreate(
     };
   };
 }
+
+test('computeOrgTotals rolls up per-person totals + distinct repos', () => {
+  const activity: OrgActivity = {
+    org: 'Acme',
+    window,
+    people: [
+      person('a', {
+        commits: [{ repo: 'web', sha: '1', message: 'm', additions: 1, deletions: 0, url: 'u', authoredAt: window.until, unshipped: false }],
+        pullRequests: [
+          { repo: 'web', number: 1, title: 't', state: 'merged', additions: 1, deletions: 0, url: 'u', createdAt: window.since },
+        ],
+        totals: { ...emptyTotals(), commits: 3, prsMerged: 2, prsOpened: 1, repos: 1 },
+      }),
+      person('b', {
+        commits: [{ repo: 'api', sha: '2', message: 'm', additions: 1, deletions: 0, url: 'u', authoredAt: window.until, unshipped: true }],
+        totals: { ...emptyTotals(), commits: 4, unshippedCommits: 1, prsMerged: 1, repos: 1 },
+      }),
+    ],
+  };
+  const t = computeOrgTotals(activity);
+  assert.equal(t.contributors, 2);
+  assert.equal(t.commits, 7);
+  assert.equal(t.unshippedCommits, 1);
+  assert.equal(t.prsMerged, 3); // not silently de-duped — straight sum of per-person merges
+  assert.equal(t.repos, 2); // web + api, distinct
+});
+
+test('buildGroundingDigest includes verified org totals for aggregate claims', () => {
+  const digest = buildGroundingDigest(sampleActivity);
+  assert.match(digest, /Org totals \(verified/);
+  assert.match(digest, /Contributors active: 1/);
+  assert.match(digest, /Commits: 2 \(1 unshipped\)/);
+  assert.match(digest, /PRs: 1 merged, 0 opened/);
+});
 
 test('buildGroundingDigest surfaces shipped + unshipped work with refs', () => {
   const digest = buildGroundingDigest(sampleActivity);

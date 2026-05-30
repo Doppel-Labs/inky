@@ -91,6 +91,10 @@ Hard rules:
   no adjectives like "great"/"solid", no manager-speak.
 - The project summary: 1–3 sentences on what the team collectively moved today —
   the through-line, what shipped vs. what's in flight. No per-person repetition.
+- For any team-wide or aggregate count (total PRs merged, commits, contributors,
+  repos), use ONLY the "Org totals" figures given in the digest, verbatim. Never
+  sum or estimate across people yourself — if a number isn't in Org totals, don't
+  state it.
 - Write for engineers reading their own team's update. Plain, direct, specific.
 
 Return your answer ONLY by calling the ${TOOL_NAME} tool.`;
@@ -176,15 +180,86 @@ function personStatLine(p: PersonActivity): string {
 }
 
 /**
+ * Org-wide rollups, computed mechanically so the model never has to count. The
+ * project summary is the one place tempted to state aggregate numbers ("9 PRs
+ * merged"), and a model summing across people drifts — so we hand it verified
+ * totals and forbid it from doing its own arithmetic.
+ */
+export function computeOrgTotals(activity: OrgActivity): {
+  contributors: number;
+  commits: number;
+  unshippedCommits: number;
+  prsOpened: number;
+  prsMerged: number;
+  reviews: number;
+  issuesOpened: number;
+  issuesClosed: number;
+  repos: number;
+  additions: number;
+  deletions: number;
+} {
+  const repos = new Set<string>();
+  let commits = 0,
+    unshippedCommits = 0,
+    prsOpened = 0,
+    prsMerged = 0,
+    reviews = 0,
+    issuesOpened = 0,
+    issuesClosed = 0,
+    additions = 0,
+    deletions = 0;
+  for (const p of activity.people) {
+    const t = p.totals;
+    commits += t.commits;
+    unshippedCommits += t.unshippedCommits;
+    prsOpened += t.prsOpened;
+    prsMerged += t.prsMerged;
+    reviews += t.reviewsGiven;
+    issuesOpened += t.issuesOpened;
+    issuesClosed += t.issuesClosed;
+    additions += t.additions;
+    deletions += t.deletions;
+    for (const c of p.commits) repos.add(c.repo);
+    for (const pr of p.pullRequests) repos.add(pr.repo);
+    for (const r of p.reviews) repos.add(r.repo);
+    for (const i of p.issues) repos.add(i.repo);
+  }
+  return {
+    contributors: activity.people.length,
+    commits,
+    unshippedCommits,
+    prsOpened,
+    prsMerged,
+    reviews,
+    issuesOpened,
+    issuesClosed,
+    repos: repos.size,
+    additions,
+    deletions,
+  };
+}
+
+/**
  * Build the factual per-person digest the model summarizes. This — not raw API
  * data — is the model's entire source of truth, so it must be complete and clean.
  */
 export function buildGroundingDigest(activity: OrgActivity): string {
   const { org, window, people } = activity;
+  const t = computeOrgTotals(activity);
   const lines: string[] = [];
   lines.push(`Organization: ${org}`);
   lines.push(`Window: ${window.since} → ${window.until} (${windowLabel(window)})`);
-  lines.push(`Active contributors: ${people.length}`);
+  lines.push('');
+  lines.push('Org totals (verified — use these exact figures for any team-wide count):');
+  lines.push(`- Contributors active: ${t.contributors}`);
+  lines.push(`- Commits: ${t.commits} (${t.unshippedCommits} unshipped)`);
+  lines.push(`- PRs: ${t.prsMerged} merged, ${t.prsOpened} opened`);
+  if (t.reviews) lines.push(`- Reviews: ${t.reviews}`);
+  if (t.issuesOpened || t.issuesClosed) {
+    lines.push(`- Issues: ${t.issuesOpened} opened, ${t.issuesClosed} closed`);
+  }
+  lines.push(`- Repos touched: ${t.repos}`);
+  lines.push(`- Net lines: +${fmtNum(t.additions)}/−${fmtNum(t.deletions)}`);
   lines.push('');
 
   for (const p of people) {
