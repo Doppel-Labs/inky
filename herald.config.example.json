@@ -3,6 +3,7 @@
   "repos": [],
   "windowHours": 24,
   "excludeBots": true,
+  "extraNoisePatterns": [],
   "aliases": {
     "alice-work": ["alicepersonal"],
     "carol-work": ["carolpersonal"],

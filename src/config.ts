@@ -22,6 +22,12 @@ export const ConfigSchema = z.object({
   windowHours: z.number().int().positive().default(24),
   /** Exclude bot accounts (logins ending in `[bot]`) from the standup. */
   excludeBots: z.boolean().default(true),
+  /**
+   * Extra glob patterns to exclude from LOC counts, on top of the built-in
+   * defaults (lockfiles, generated code, venvs, build dirs, caches). Use for
+   * repo-specific generated paths, e.g. "**\/*.snapshot" or "db/seed/**".
+   */
+  extraNoisePatterns: z.array(z.string()).default([]),
   /** Canonical-login -> [alias logins/emails], to merge split identities. */
   aliases: AliasMapSchema.default({}),
   /** Where the standup is posted. Phase 4 fills this in; optional until then. */

@@ -10,7 +10,7 @@
  *   best-effort: a failed enrichment degrades to 0 lines, never aborts the run.
  */
 import { Octokit } from '@octokit/rest';
-import { sumRealChurn } from './filter.js';
+import { isGeneratedPath, sumRealChurn, type NoiseMatcher } from './filter.js';
 import type { RawIdentity } from './identity.js';
 import type {
   CommitActivity,
@@ -74,6 +74,7 @@ export async function fetchCommits(
   org: string,
   repo: string,
   window: Window,
+  isNoise: NoiseMatcher = isGeneratedPath,
 ): Promise<CommitRecord[]> {
   const list = await octokit.paginate(octokit.rest.repos.listCommits, {
     owner: org,
@@ -101,6 +102,7 @@ export async function fetchCommits(
           additions: f.additions ?? 0,
           deletions: f.deletions ?? 0,
         })),
+        isNoise,
       );
       additions = churn.additions;
       deletions = churn.deletions;

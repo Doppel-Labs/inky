@@ -5,6 +5,7 @@
  * summarize() consumes. Pure orchestration over the github + identity layers.
  */
 import type { Config, Secrets } from './config.js';
+import { createNoiseMatcher } from './filter.js';
 import { IdentityResolver } from './identity.js';
 import {
   computeWindow,
@@ -54,6 +55,7 @@ export async function collect(
   const octokit = makeOctokit(secrets.githubToken);
   const window = computeWindow(config.windowHours, now);
   const resolver = new IdentityResolver(config.aliases);
+  const isNoise = createNoiseMatcher(config.extraNoisePatterns);
   const buckets = new Map<string, Bucket>();
 
   const bucketFor = (key: string): Bucket => {
@@ -70,7 +72,7 @@ export async function collect(
 
   for (const repo of repos) {
     try {
-      const commits = await fetchCommits(octokit, config.org, repo, window);
+      const commits = await fetchCommits(octokit, config.org, repo, window, isNoise);
       for (const { author, commit } of commits) {
         bucketFor(resolver.resolve(author)).commits.push(commit);
       }
