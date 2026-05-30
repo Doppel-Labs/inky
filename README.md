@@ -44,10 +44,14 @@ delivery (webhook │ bot post)
 ```bash
 corepack enable                            # provides the pinned pnpm version
 pnpm install
-cp .env.example .env                       # add GITHUB_TOKEN
+cp .env.example .env                       # add GITHUB_TOKEN (see token guide below)
 cp herald.config.example.json herald.config.json   # set your org/repos
-pnpm --silent collect                      # fetch + print org activity as JSON (Phase 1)
+pnpm --silent collect                      # fetch + print org activity as JSON
+pnpm --silent standup --dry-run --days 1   # build a standup and print it (no Discord)
 ```
+
+**Need a GitHub token?** See [`docs/github-token-setup.md`](docs/github-token-setup.md)
+for a secure, least-privilege (read-only) setup.
 
 > Use `pnpm --silent` so only the JSON reaches stdout (without it, pnpm prints a
 > script banner). The installed `herald` binary needs no such flag.
