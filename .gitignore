@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Env / secrets
+.env
+.env.local
+*.local
+
+# Herald runtime config (may contain tokens) — commit herald.config.example.* instead
+herald.config.json
+herald.config.local.*
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Playwright MCP screenshots
+.playwright-mcp/
