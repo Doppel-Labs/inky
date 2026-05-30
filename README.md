@@ -18,9 +18,9 @@ for the full spec, competitive analysis, and roadmap.
 | Phase | Scope | State |
 |---|---|---|
 | 0 | Scaffold: TS project, config schema, core types | ✅ |
-| 1 | `collect()` — GitHub API fetch + identity aliasing | 🚧 |
-| 2 | `normalize()` + `render()` — mechanical digest, no AI | — |
-| 3 | `summarize()` — AI-written standup (Anthropic, BYO key) | — |
+| 1 | `collect()` — GitHub API fetch + identity aliasing | ✅ |
+| 2 | `normalize()` + `render()` — mechanical digest, LOC filtering, Discord delivery | ✅ |
+| 3 | `summarize()` — AI-written standup (Anthropic, BYO key) | 🚧 |
 | 4 | Trigger + delivery — cron + `/standup` slash command | — |
 | 5 | `reconcile()` — status vs roadmap (paid hook) | — |
 | 6 | Hosted multi-tenant tier + dashboard (paid) | — |
