@@ -26,7 +26,9 @@ const BASE_URLS: Record<'groq' | 'openai', string> = {
  */
 const DEFAULT_MODELS: Record<Config['provider'], string> = {
   anthropic: 'claude-haiku-4-5',
-  groq: 'llama-3.3-70b-versatile',
+  // gpt-oss-120b (OpenAI's open-weight model on Groq) grounds far better than
+  // Llama 3.3 70b — sharp shipped/unshipped distinctions and faithful aggregates.
+  groq: 'openai/gpt-oss-120b',
   openai: 'gpt-4o-mini',
 };
 

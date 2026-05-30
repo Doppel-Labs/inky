@@ -35,7 +35,7 @@ test('resolves groq with its default model when keyed', () => {
   const llm = resolveLlm(config({ provider: 'groq' }), { ...onlyGithub, groqApiKey: 'g' });
   assert.ok(llm);
   assert.equal(llm!.provider, 'groq');
-  assert.equal(llm!.model, 'llama-3.3-70b-versatile');
+  assert.equal(llm!.model, 'openai/gpt-oss-120b');
 });
 
 test('config.model overrides the per-provider default', () => {
