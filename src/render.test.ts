@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isPromotionPR, renderMechanical } from './render.js';
+import { isPromotionPR, renderMechanical, windowLabel } from './render.js';
 import type { CommitActivity, OrgActivity, PersonActivity, PullRequestActivity } from './types.js';
 
 const window = { since: '2026-05-29T00:00:00.000Z', until: '2026-05-30T00:00:00.000Z' };
@@ -69,6 +69,23 @@ test('isPromotionPR flags promotion/merge PRs, not features', () => {
   assert.ok(isPromotionPR('Merge chat overhaul into experimental-local'));
   assert.equal(isPromotionPR('feat(billing): differentiate tiers'), false);
   assert.equal(isPromotionPR('Add llm_thread clip type'), false);
+});
+
+test('windowLabel matches the window length', () => {
+  const day = (n: number) => `2026-05-${String(n).padStart(2, '0')}T00:00:00.000Z`;
+  assert.equal(windowLabel({ since: day(29), until: day(30) }), 'Daily Standup');
+  assert.equal(windowLabel({ since: day(27), until: day(30) }), '3-Day Standup');
+  assert.equal(windowLabel({ since: day(23), until: day(30) }), 'Weekly Standup');
+  assert.match(windowLabel({ since: '2026-05-30T00:00:00.000Z', until: '2026-05-30T06:00:00.000Z' }), /6h/);
+});
+
+test('renderMechanical titles a 3-day window as 3-Day Standup, not Daily', () => {
+  const md = renderMechanical({
+    org: 'Acme',
+    window: { since: '2026-05-27T00:00:00.000Z', until: '2026-05-30T00:00:00.000Z' },
+    people: [],
+  });
+  assert.match(md, /# 📋 3-Day Standup — Acme/);
 });
 
 test('renderMechanical shows an empty-window message', () => {

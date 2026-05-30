@@ -21,6 +21,19 @@ function fmtDate(iso: string): string {
   return iso.slice(0, 10);
 }
 
+/** A standup label that matches the actual window, so a 3-day view isn't "Daily". */
+export function windowLabel(window: { since: string; until: string }): string {
+  const hours = Math.round(
+    (new Date(window.until).getTime() - new Date(window.since).getTime()) / 3_600_000,
+  );
+  if (hours < 20) return `Standup — last ${hours}h`; // sub-day window
+  if (hours <= 26) return 'Daily Standup'; // ~24h, with slack
+  const days = Math.round(hours / 24);
+  if (days === 7) return 'Weekly Standup';
+  if (Math.abs(hours - days * 24) <= 1) return `${days}-Day Standup`;
+  return `Standup — last ${hours}h`;
+}
+
 /**
  * True for promotion/merge PRs that carry no feature signal: branch-promotion
  * ("Staging", "staging → main", "Promote: …"), env names, or "Merge X into Y".
@@ -112,7 +125,7 @@ export interface RenderOptions {
 /** Render the full mechanical standup as Discord-flavored markdown. */
 export function renderMechanical(activity: OrgActivity, opts: RenderOptions = {}): string {
   const { org, window, people } = activity;
-  const title = opts.title ?? '📋 Daily Standup';
+  const title = opts.title ?? `📋 ${windowLabel(window)}`;
   const commitSample = opts.commitSample ?? 5;
   const day = fmtDate(window.until);
   const span = fmtDate(window.since) === day ? day : `${fmtDate(window.since)} → ${day}`;
