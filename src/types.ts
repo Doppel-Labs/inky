@@ -133,6 +133,21 @@ export interface OrgTotals {
   deletions: number;
 }
 
+/**
+ * OrgTotals plus a couple of derived, agentic-era-friendly signals for the stats
+ * panel (see docs/research/agentic-coding-metrics.md): a stability proxy (reverts)
+ * and a throughput proxy (PR cycle time). Both team-level, both cheap from data
+ * Herald already has.
+ */
+export interface TeamStats extends OrgTotals {
+  /** Commits that revert earlier work — a stability/instability proxy. */
+  reverts: number;
+  /** reverts / commits, 0..1 (0 when there are no commits). */
+  revertRate: number;
+  /** Median merged-PR cycle time (createdAt → mergedAt) in hours; null if none. */
+  medianPrCycleHours: number | null;
+}
+
 /** A person's bullets for a single repository, so work is grouped by repo. */
 export interface RepoWork {
   repo: string;
@@ -158,8 +173,8 @@ export interface Standup {
   /** AI-written org-wide summary: where the project stands today. */
   projectSummary: string;
   people: PersonStandup[];
-  /** Verified team-wide rollups, carried for an optional stats panel. */
-  teamTotals?: OrgTotals;
+  /** Verified team-wide stats, carried for an optional stats panel. */
+  teamTotals?: TeamStats;
   /** Phase 5: status reconciled against a task tracker / roadmap. */
   statusVsPlan?: string;
 }

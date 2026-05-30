@@ -14,11 +14,11 @@
 import type {
   CommitActivity,
   OrgActivity,
-  OrgTotals,
   PersonActivity,
   PersonStandup,
   PullRequestActivity,
   Standup,
+  TeamStats,
 } from './types.js';
 
 function fmtNum(n: number): string {
@@ -181,19 +181,33 @@ function statsPeriod(window: { since: string; until: string }): string {
   return `last ${days} days`;
 }
 
+/** Human-friendly duration from hours: "9m" under 1h, "5h" under 2 days, else "2.3d". */
+function fmtDuration(hours: number): string {
+  if (hours < 1) return `${Math.round(hours * 60)}m`;
+  if (hours < 48) return `${Math.round(hours)}h`;
+  return `${(hours / 24).toFixed(1)}d`;
+}
+
 /**
  * Team-level stats panel. Deliberately team-only and labels lines as size rather
- * than score — these inform, they are not a leaderboard (see docs/research).
+ * than score — these inform, they are not a leaderboard (see docs/research). Adds
+ * a throughput proxy (PR cycle time) and a stability proxy (revert rate).
  */
-function teamStatsPanel(t: OrgTotals, window: { since: string; until: string }): string[] {
+function teamStatsPanel(t: TeamStats, window: { since: string; until: string }): string[] {
   const lines = [`### 📊 Team stats — ${statsPeriod(window)}`];
   lines.push(
     `- **${t.prsMerged}** PRs merged` + (t.prsOpened ? `, **${t.prsOpened}** opened` : ''),
   );
+  if (t.medianPrCycleHours !== null) {
+    lines.push(`- median PR cycle time: **${fmtDuration(t.medianPrCycleHours)}** (open → merged)`);
+  }
   lines.push(
     `- **${t.commits}** commits` +
       (t.unshippedCommits ? ` (**${t.unshippedCommits}** unshipped)` : ''),
   );
+  if (t.commits) {
+    lines.push(`- **${t.reverts}** reverts (**${(t.revertRate * 100).toFixed(1)}%** of commits)`);
+  }
   if (t.reviews) lines.push(`- **${t.reviews}** reviews given`);
   if (t.issuesOpened || t.issuesClosed) {
     lines.push(`- issues: **${t.issuesOpened}** opened, **${t.issuesClosed}** closed`);

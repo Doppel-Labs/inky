@@ -13,7 +13,7 @@
  * exactly like the Discord delivery layer. The real adapter lives in anthropic.ts.
  */
 import { z } from 'zod';
-import { windowLabel } from './render.js';
+import { isPromotionPR, windowLabel } from './render.js';
 import type {
   CommitActivity,
   OrgActivity,
@@ -21,6 +21,7 @@ import type {
   PersonActivity,
   PersonStandup,
   Standup,
+  TeamStats,
   Window,
 } from './types.js';
 
@@ -292,6 +293,48 @@ export function computeOrgTotals(activity: OrgActivity): OrgTotals {
   };
 }
 
+/** A commit that undoes earlier work — `git revert` output or a "revert" message. */
+export function isRevertCommit(message: string): boolean {
+  return /^revert\b/i.test(message.trim()) || /this reverts commit/i.test(message);
+}
+
+function median(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
+}
+
+/**
+ * OrgTotals plus two derived signals for the stats panel: revert rate (stability)
+ * and median merged-PR cycle time (throughput). Both from data Herald already has
+ * — no extra fetching — per the agentic-era metrics research.
+ */
+export function computeTeamStats(activity: OrgActivity): TeamStats {
+  const totals = computeOrgTotals(activity);
+
+  let reverts = 0;
+  const cycleHours: number[] = [];
+  for (const p of activity.people) {
+    for (const c of p.commits) if (isRevertCommit(c.message)) reverts++;
+    for (const pr of p.pullRequests) {
+      // Exclude promotion/auto-merge PRs (e.g. "Staging") — they merge instantly
+      // and would drag the cycle-time median to ~0, hiding real feature lead time.
+      if (pr.state === 'merged' && pr.mergedAt && !isPromotionPR(pr.title)) {
+        const h = (new Date(pr.mergedAt).getTime() - new Date(pr.createdAt).getTime()) / 3_600_000;
+        if (h >= 0) cycleHours.push(h);
+      }
+    }
+  }
+
+  return {
+    ...totals,
+    reverts,
+    revertRate: totals.commits ? reverts / totals.commits : 0,
+    medianPrCycleHours: median(cycleHours),
+  };
+}
+
 /**
  * Build the factual per-person digest the model summarizes. This — not raw API
  * data — is the model's entire source of truth, so it must be complete and clean.
@@ -485,6 +528,6 @@ export async function summarize(activity: OrgActivity, opts: SummarizeOptions): 
     window,
     projectSummary: parsed.projectSummary.trim(),
     people: peopleStandups,
-    teamTotals: computeOrgTotals(activity),
+    teamTotals: computeTeamStats(activity),
   };
 }

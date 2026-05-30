@@ -1,6 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildGroundingDigest, computeOrgTotals, detailForWindow, summarize } from './summarize.js';
+import {
+  buildGroundingDigest,
+  computeOrgTotals,
+  computeTeamStats,
+  detailForWindow,
+  isRevertCommit,
+  summarize,
+} from './summarize.js';
 import type { CreateMessageParams, MessageResponse, MessagesCreate } from './summarize.js';
 import type { OrgActivity, PersonActivity } from './types.js';
 
@@ -157,6 +164,42 @@ test('computeOrgTotals rolls up per-person totals + distinct repos', () => {
   assert.equal(t.unshippedCommits, 1);
   assert.equal(t.prsMerged, 3); // not silently de-duped — straight sum of per-person merges
   assert.equal(t.repos, 2); // web + api, distinct
+});
+
+test('isRevertCommit flags reverts, not normal fixes', () => {
+  assert.ok(isRevertCommit('Revert "add cache"'));
+  assert.ok(isRevertCommit('revert: drop the flag'));
+  assert.ok(isRevertCommit('chore: undo\n\nThis reverts commit abc123.'));
+  assert.equal(isRevertCommit('fix: handle null user'), false);
+  assert.equal(isRevertCommit('feat: add billing'), false);
+});
+
+test('computeTeamStats derives revert rate and median PR cycle time', () => {
+  const activity: OrgActivity = {
+    org: 'Acme',
+    window,
+    people: [
+      person('a', {
+        commits: [
+          commit({ message: 'feat: x', sha: '1' }),
+          commit({ message: 'Revert "feat: x"', sha: '2' }),
+          commit({ message: 'fix: y', sha: '3' }),
+          commit({ message: 'chore: z', sha: '4' }),
+        ],
+        pullRequests: [
+          // cycle times of 24h and 48h → median 36h
+          { repo: 'web', number: 1, title: 't', state: 'merged', additions: 1, deletions: 0, url: 'u', createdAt: '2026-05-29T00:00:00.000Z', mergedAt: '2026-05-30T00:00:00.000Z' },
+          { repo: 'web', number: 2, title: 't', state: 'merged', additions: 1, deletions: 0, url: 'u', createdAt: '2026-05-28T00:00:00.000Z', mergedAt: '2026-05-30T00:00:00.000Z' },
+          { repo: 'web', number: 3, title: 't', state: 'open', additions: 1, deletions: 0, url: 'u', createdAt: '2026-05-29T00:00:00.000Z' },
+        ],
+        totals: { ...emptyTotals(), commits: 4, prsMerged: 2, prsOpened: 1, repos: 1 },
+      }),
+    ],
+  };
+  const s = computeTeamStats(activity);
+  assert.equal(s.reverts, 1);
+  assert.equal(s.revertRate, 1 / 4);
+  assert.equal(s.medianPrCycleHours, 36); // median of 24h and 48h
 });
 
 test('buildGroundingDigest includes verified org totals for aggregate claims', () => {

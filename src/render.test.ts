@@ -179,6 +179,9 @@ function standupWithStats(): Standup {
       repos: 2,
       additions: 12345,
       deletions: 678,
+      reverts: 2,
+      revertRate: 2 / 40,
+      medianPrCycleHours: 30,
     },
     people: [
       {
@@ -208,7 +211,9 @@ test('renderStandup shows the team stats panel only when enabled', () => {
   const withStats = renderStandup(s, { showStats: true });
   assert.match(withStats, /### 📊 Team stats — this week/);
   assert.match(withStats, /\*\*7\*\* PRs merged, \*\*9\*\* opened/);
+  assert.match(withStats, /median PR cycle time: \*\*30h\*\* \(open → merged\)/);
   assert.match(withStats, /\*\*40\*\* commits \(\*\*12\*\* unshipped\)/);
+  assert.match(withStats, /\*\*2\*\* reverts \(\*\*5\.0%\*\* of commits\)/);
   assert.match(withStats, /size, not score/);
 });
 
