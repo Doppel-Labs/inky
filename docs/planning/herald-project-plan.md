@@ -101,6 +101,39 @@ The task-tracker step (`reconcile()`) slots between `normalize()` and `summarize
 - **Discord formatting limits** (embed length, 2000-char messages) — `render()` must chunk/paginate.
 - **Privacy/trust positioning** — especially as it nears the manager-facing analytics that incumbents occupy. Keep it team-facing and transparent.
 
-## 9. Immediate next step
+## 9. Decisions log (build)
 
-Begin **Phase 0 → 1**: scaffold the TS project and stand up `collect()` against a real org (Doppel-Labs repos are an available test target, with the existing alias map as seed data). Decide hosting only at Phase 4.
+Design decisions made during implementation, captured so they survive context compaction. Most are also reflected in code comments.
+
+- **Stack:** TypeScript/Node, pnpm (pinned via `packageManager` + corepack), strict TS (NodeNext). Picked pnpm over npm for monorepo-readiness (future Next.js dashboard), strictness, speed.
+- **Data source:** GitHub **API** (Octokit REST), not local git-log — must work on un-cloned org repos for the hosted tier.
+- **Commits across ALL branches:** `fetchCommits` traverses every branch (not just default), dedupes by SHA, and flags commits not on the default branch as **`unshipped`** — so work-in-progress is visible. Decision: "unshipped" = *not on default branch* (so shared branches like `staging` count as unshipped), NOT per-person feature branches. Accepted tradeoff.
+- **All org repos:** `config.repos: []` means all non-archived repos in the org (via `listOrgRepos`). Tests scoped to `["application","mobile"]`.
+- **Render is commit-centric & mechanical (no AI yet):** shipped feature PRs → commit work (unshipped first, with branch) → reviews. Doubles as the no-API-key fallback and the ground truth for the Phase 3 summarizer.
+- **Noise filtering — bots:** `excludeBots` (default true) drops `[bot]`-suffixed logins. Surfaced live when `chatgpt-codex-connector[bot]` appeared.
+- **Noise filtering — LOC:** `src/filter.ts` (picomatch) excludes lockfiles/generated/venv/build/cache paths from line counts only (never commit/PR counts). Broadened to cover TS (Next/Vite/etc.) + Python (venv/uv/caches) + other ecosystems. `extraNoisePatterns` config extends defaults per-repo. **Migrations are kept** (real work). Live audit: 0 false positives over 301 real files.
+- **Promotion PRs filtered:** `isPromotionPR` drops "Staging" / "Promote:" / "Merge X into Y" / env-name PRs from highlights (kept in counts).
+- **Window-aware title:** `windowLabel` derives heading from window length (Daily / Weekly / N-Day / "last Nh"); not hardcoded "Daily".
+- **Adjustable windows:** `collect()` takes a `windowHours` override; CLI `--days`/`--hours`. Groundwork for Phase 4 queryable slash commands (e.g. `/standup last 3 days`).
+- **Line counts kept** in output for now (user OK with the mild eval-y framing). Revisit if framing becomes a concern.
+- **Secrets:** only from env (`GITHUB_TOKEN`/`GH_TOKEN`, `ANTHROPIC_API_KEY`); `herald.config.json` is gitignored; token never leaves the machine. Least-privilege fine-grained PAT documented in `docs/github-token-setup.md`.
+- **Discord delivery:** posts as **embeds** (so masked PR links render), chunked 4096/embed, 10 embeds/message, 429 backoff. **Not yet tested against a real webhook** — user deferred; unit-tested with injected fetch + `--dry-run`.
+- **Git hygiene:** explicit `git add <paths>` (no `-A`), no Claude co-author lines. Commit per milestone.
+
+### Open feedback the user gave (incorporated)
+Show unshipped work ✓ · clean promotion-PR noise ✓ · adjustable time windows ✓ · window-correct titles ✓.
+
+### Still open / deferred
+- Real Discord post (needs a webhook URL).
+- User will create the least-privilege GitHub token later.
+- Performance: all-branch traversal is ~12s for 2 repos/3 days; could be heavy org-wide (optimize with GraphQL / skip stale branches if needed).
+
+## 10. Current status (as of 2026-05-30)
+
+- **Phases 0–2 complete and committed** (~12 commits on `main`, 29 tests passing).
+- `herald collect` and `herald standup --dry-run [--days N|--hours N]` work live against Doppel-Labs.
+- **Next: Phase 3 — `summarize()`** (Anthropic SDK, BYO key, prompt caching): turn the mechanical activity into AI-written per-person prose + a project-wide summary. Build with a mocked client first (like the Discord layer), show structure, then run live once an `ANTHROPIC_API_KEY` is set. Must ground every claim in real activity (no hallucination); reuse `renderMechanical` output as the factual base.
+
+## 11. Original immediate next step (historical)
+
+Begin **Phase 0 → 1**: scaffold the TS project and stand up `collect()` against a real org. *(Done — see §10.)*
