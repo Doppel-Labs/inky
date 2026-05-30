@@ -12,6 +12,8 @@ import 'dotenv/config';
 import { loadConfig, loadSecrets } from './config.js';
 
 const COMMANDS = ['collect', 'standup'] as const;
+const PROVIDERS = ['anthropic', 'groq', 'openai'] as const;
+type Provider = (typeof PROVIDERS)[number];
 type Command = (typeof COMMANDS)[number];
 
 function usage(): never {
@@ -25,6 +27,7 @@ Options:
   --config <path>   Config file (default: herald.config.json)
   --days <n>        Window length in days (overrides config windowHours)
   --hours <n>       Window length in hours (overrides config windowHours)
+  --provider <p>    LLM provider: anthropic | groq | openai (overrides config)
   --model <id>      LLM model id (overrides config model / provider default)
   --dry-run         Print the standup to stdout instead of posting to Discord
   --mechanical      Skip the AI summary; use the deterministic renderer
@@ -43,6 +46,7 @@ interface ParsedArgs {
   mechanical: boolean;
   windowHours?: number;
   model?: string;
+  provider?: Provider;
 }
 
 function parsePositiveNumber(raw: string | undefined): number {
@@ -59,6 +63,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   let mechanical = false;
   let windowHours: number | undefined;
   let model: string | undefined;
+  let provider: Provider | undefined;
   for (let i = 0; i < rest.length; i++) {
     if (rest[i] === '--config') {
       const next = rest[i + 1];
@@ -72,6 +77,10 @@ function parseArgs(argv: string[]): ParsedArgs {
     } else if (rest[i] === '--model') {
       model = rest[++i];
       if (!model) usage();
+    } else if (rest[i] === '--provider') {
+      const next = rest[++i];
+      if (!next || !PROVIDERS.includes(next as Provider)) usage();
+      provider = next as Provider;
     } else if (rest[i] === '--dry-run') {
       dryRun = true;
     } else if (rest[i] === '--mechanical') {
@@ -80,14 +89,19 @@ function parseArgs(argv: string[]): ParsedArgs {
       usage();
     }
   }
-  return { command: command as Command, configPath, dryRun, mechanical, windowHours, model };
+  return { command: command as Command, configPath, dryRun, mechanical, windowHours, model, provider };
 }
 
 async function main(): Promise<void> {
-  const { command, configPath, dryRun, mechanical, windowHours, model } = parseArgs(
+  const { command, configPath, dryRun, mechanical, windowHours, model, provider } = parseArgs(
     process.argv.slice(2),
   );
-  const config = loadConfig(configPath);
+  let config = loadConfig(configPath);
+  // CLI overrides (for quick A/B). Switching provider drops the configured
+  // model — it belongs to the old provider — so the new provider's default
+  // applies unless --model is also given.
+  if (provider) config = { ...config, provider, model: undefined };
+  if (model) config = { ...config, model };
   const secrets = loadSecrets();
 
   switch (command) {
@@ -110,13 +124,12 @@ async function main(): Promise<void> {
       if (llm) {
         try {
           const { summarize } = await import('./summarize.js');
-          const useModel = model ?? llm.model;
           const standup = await summarize(activity, {
             create: llm.create,
-            model: useModel,
+            model: llm.model,
             log: (m) => console.error(m),
           });
-          console.error(`standup: summarized with ${llm.provider} (${useModel}).`);
+          console.error(`standup: summarized with ${llm.provider} (${llm.model}).`);
           markdown = renderStandup(standup);
         } catch (err) {
           console.error(
