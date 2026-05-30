@@ -133,7 +133,7 @@ Show unshipped work ✓ · clean promotion-PR noise ✓ · adjustable time windo
 ## 10. Current status (as of 2026-05-30)
 
 - **Phases 0–3 complete and committed** (~14 commits on `main`, 47 tests passing).
-- `herald collect` and `herald standup --dry-run [--days N|--hours N] [--mechanical]` work live against Doppel-Labs.
+- `herald collect` and `herald standup --dry-run [--days N|--hours N] [--mechanical]` work live against a real org (your config's org).
 - **Phase 3 (`summarize()`) done:** AI-written per-person prose + project summary, grounded in a factual digest, structured via a forced `emit_standup` tool call. Provider-agnostic (Anthropic default; Groq/OpenAI via OpenAI-compatible adapter). Built + unit-tested against a fake client. **Live AI run still deferred** — no `ANTHROPIC_API_KEY`/`GROQ_API_KEY` set yet; verified end-to-end through the mechanical fallback. Set a key and run `herald standup --dry-run` to see real AI output.
 - **Next: Phase 4 — trigger + delivery:** cron schedule + Discord `/standup` slash command (queryable windows, leveraging the `windowHours` override already in place), and the real Discord webhook post (deferred from Phase 2).
 

@@ -1,13 +1,12 @@
 {
-  "org": "Doppel-Labs",
+  "org": "your-org",
   "repos": [],
   "windowHours": 24,
   "excludeBots": true,
   "extraNoisePatterns": [],
   "aliases": {
-    "alice-work": ["alicepersonal"],
-    "carol-work": ["carolpersonal"],
-    "bob-work": ["Bob", "bob@Bobs-MacBook-Pro.local"]
+    "alice": ["alice-personal", "alice@example.com"],
+    "bob": ["bob-laptop", "bob@bobs-macbook-pro.local"]
   },
   "discord": {},
   "provider": "anthropic",

@@ -146,7 +146,7 @@ test('renderStandup renders the project summary and per-person narratives', () =
     projectSummary: 'The team shipped login and is mid-way on the parser.',
     people: [
       {
-        person: { login: 'dünya', displayName: 'Dünya', emails: [] },
+        person: { login: 'alice', displayName: 'Alice', emails: [] },
         narrative: 'Shipped login (#42) and is working on a new parser.',
         work: [{ repo: 'web', points: ['#42 Add login'] }],
       },
@@ -155,7 +155,7 @@ test('renderStandup renders the project summary and per-person narratives', () =
   const md = renderStandup(standup);
   assert.match(md, /# 📋 Daily Standup — Acme/);
   assert.match(md, /The team shipped login and is mid-way on the parser\./);
-  assert.match(md, /## Dünya \(`dünya`\)/);
+  assert.match(md, /## Alice \(`alice`\)/);
   assert.match(md, /Shipped login \(#42\) and is working on a new parser\./);
   assert.match(md, /- #42 Add login/);
   assert.doesNotMatch(md, /\*\*web\*\*/); // single repo → no repo subheader

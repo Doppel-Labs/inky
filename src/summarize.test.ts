@@ -51,8 +51,8 @@ const sampleActivity: OrgActivity = {
   org: 'Acme',
   window,
   people: [
-    person('dünya', {
-      person: { login: 'dünya', displayName: 'Dünya', emails: [] },
+    person('alice', {
+      person: { login: 'alice', displayName: 'Alice', emails: [] },
       commits: [
         {
           repo: 'web',
@@ -170,7 +170,7 @@ test('buildGroundingDigest includes verified org totals for aggregate claims', (
 test('buildGroundingDigest surfaces shipped + unshipped work with refs', () => {
   const digest = buildGroundingDigest(sampleActivity);
   assert.match(digest, /Organization: Acme/);
-  assert.match(digest, /login: dünya/);
+  assert.match(digest, /login: alice/);
   assert.match(digest, /#42 Add login \(web\)/);
   assert.match(digest, /Work in progress.*\n- wip: new parser \(web@feat\/parser\)/);
   assert.match(digest, /Shipped commits.*\n- tidy imports \(web\)/);
@@ -182,7 +182,7 @@ test('summarize maps model output to people by login', async () => {
       projectSummary: 'Team pushed on the parser; login shipped.',
       people: [
         {
-          login: 'dünya',
+          login: 'alice',
           narrative: 'Working on a new parser (#42 merged).',
           work: [{ repo: 'web', points: ['#42 Add login'] }],
         },
@@ -192,7 +192,7 @@ test('summarize maps model output to people by login', async () => {
   assert.equal(standup.org, 'Acme');
   assert.equal(standup.projectSummary, 'Team pushed on the parser; login shipped.');
   assert.equal(standup.people.length, 1);
-  assert.equal(standup.people[0]?.person.login, 'dünya');
+  assert.equal(standup.people[0]?.person.login, 'alice');
   assert.equal(standup.people[0]?.narrative, 'Working on a new parser (#42 merged).');
   assert.deepEqual(standup.people[0]?.work, [{ repo: 'web', points: ['#42 Add login'] }]);
 });
@@ -201,7 +201,7 @@ test('summarize matches logins case-insensitively', async () => {
   const standup = await summarize(sampleActivity, {
     create: fakeCreate({
       projectSummary: 's',
-      people: [{ login: 'DÜNYA', narrative: 'Matched despite different case.' }],
+      people: [{ login: 'ALICE', narrative: 'Matched despite different case.' }],
     }),
   });
   assert.equal(standup.people[0]?.narrative, 'Matched despite different case.');

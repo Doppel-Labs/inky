@@ -27,7 +27,7 @@ read-only permissions — far safer than a classic token.
 
 1. Go to **GitHub → Settings → Developer settings → Personal access tokens →
    Fine-grained tokens → Generate new token**.
-2. **Token name:** `herald-<org>` (e.g. `herald-doppel-labs`).
+2. **Token name:** `herald-<org>` (e.g. `herald-acme`).
 3. **Expiration:** set one (e.g. 90 days). Rotate when it lapses.
 4. **Resource owner:** select your **organization** (not your personal account).
    - If the org requires approval for fine-grained tokens, an org owner must
