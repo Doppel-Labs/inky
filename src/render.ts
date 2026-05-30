@@ -237,13 +237,14 @@ export function renderStandup(standup: Standup, opts: RenderOptions = {}): strin
   out.push(`**${span}** · ${people.length} contributor${people.length === 1 ? '' : 's'} active`);
   out.push('');
 
-  if (projectSummary) {
-    out.push(projectSummary);
+  // Stats lead the report (numbers first, evaluator-style), then the prose.
+  if (opts.showStats && standup.teamTotals) {
+    for (const line of teamStatsPanel(standup.teamTotals, window)) out.push(line);
     out.push('');
   }
 
-  if (opts.showStats && standup.teamTotals) {
-    for (const line of teamStatsPanel(standup.teamTotals, window)) out.push(line);
+  if (projectSummary) {
+    out.push(projectSummary);
     out.push('');
   }
 

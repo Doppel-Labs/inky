@@ -236,6 +236,20 @@ test('summarize sends a cached system prompt and forces the tool call', async ()
   assert.match(p.messages[0]?.content ?? '', /factual activity digest/);
 });
 
+test('summarize switches the per-person style with format: bullets', async () => {
+  const proseRec: { params?: CreateMessageParams } = {};
+  await summarize(sampleActivity, { create: fakeCreate({ projectSummary: 's', people: [] }, proseRec) });
+  assert.match(proseRec.params!.messages[0]!.content, /STYLE — prose/);
+
+  const bulletRec: { params?: CreateMessageParams } = {};
+  await summarize(sampleActivity, {
+    create: fakeCreate({ projectSummary: 's', people: [] }, bulletRec),
+    format: 'bullets',
+  });
+  assert.match(bulletRec.params!.messages[0]!.content, /STYLE — bullets/);
+  assert.match(bulletRec.params!.messages[0]!.content, /do NOT write a prose paragraph/);
+});
+
 test('summarize throws if the model returns no tool call', async () => {
   const create: MessagesCreate = async () => ({
     content: [{ type: 'text', text: 'I cannot.' }],

@@ -369,6 +369,12 @@ export interface SummarizeOptions {
   model?: string;
   /** Max output tokens (default 2048; per-person narratives are short). */
   maxTokens?: number;
+  /**
+   * Per-person output style: 'prose' (default) = a short narrative paragraph;
+   * 'bullets' = a list of concise bullet points (no paragraph). The project
+   * summary stays prose either way.
+   */
+  format?: 'prose' | 'bullets';
   log?: (msg: string) => void;
 }
 
@@ -404,12 +410,21 @@ export async function summarize(activity: OrgActivity, opts: SummarizeOptions): 
 
   const detail = detailForWindow(window);
   const digest = buildGroundingDigest(activity, detail);
+  const format = opts.format ?? 'prose';
+  const styleTarget =
+    format === 'bullets'
+      ? `STYLE — bullets: write each person's update as concise bullet points in the ` +
+        `"highlights" array (up to ${detail.maxHighlights + 3}), one line each with refs ` +
+        `(#PR, repo). Lead with shipped work, then work-in-progress. Leave "narrative" empty ` +
+        `or a single short lead clause — do NOT write a prose paragraph.`
+      : `STYLE — prose: write each person's "narrative" as roughly ` +
+        `${detail.perPersonSentences} sentences, plus up to ${detail.maxHighlights} highlight ` +
+        `bullets.`;
   const depthTarget =
     `DEPTH TARGET — this is a ${detail.tier} window (${windowLabel(window)}). Scale the ` +
-    `write-up to match: roughly ${detail.perPersonSentences} sentences per person and up ` +
-    `to ${detail.maxHighlights} highlight bullets each, with a ${detail.projectSentences}-` +
-    `sentence project summary. A longer window means a more thorough report — but only ` +
-    `from real activity, never padding.`;
+    `write-up to match; longer windows mean a more thorough report — but only from real ` +
+    `activity, never padding. The project summary is ${detail.projectSentences} sentences ` +
+    `of prose regardless of style.\n${styleTarget}`;
   const res = await opts.create({
     model: opts.model ?? 'claude-sonnet-4-6',
     max_tokens: opts.maxTokens ?? detail.outputTokens,

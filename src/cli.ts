@@ -14,6 +14,8 @@ import { loadConfig, loadSecrets } from './config.js';
 const COMMANDS = ['collect', 'standup'] as const;
 const PROVIDERS = ['anthropic', 'groq', 'openai'] as const;
 type Provider = (typeof PROVIDERS)[number];
+const FORMATS = ['prose', 'bullets'] as const;
+type Format = (typeof FORMATS)[number];
 type Command = (typeof COMMANDS)[number];
 
 function usage(): never {
@@ -32,6 +34,7 @@ Options:
   --stats           Force the team stats panel on (default: auto on weekly+)
   --no-stats        Force the team stats panel off
   --stats-per-person  Add a per-person stat line under each name
+  --format <style>  Per-person style: prose (default) | bullets
   --dry-run         Print the standup to stdout instead of posting to Discord
   --mechanical      Skip the AI summary; use the deterministic renderer
 
@@ -53,6 +56,7 @@ interface ParsedArgs {
   /** undefined = use config (auto); true/false = forced by --stats/--no-stats. */
   stats?: boolean;
   statsPerPerson?: boolean;
+  format?: Format;
 }
 
 function parsePositiveNumber(raw: string | undefined): number {
@@ -72,6 +76,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   let provider: Provider | undefined;
   let stats: boolean | undefined;
   let statsPerPerson: boolean | undefined;
+  let format: Format | undefined;
   for (let i = 0; i < rest.length; i++) {
     if (rest[i] === '--config') {
       const next = rest[i + 1];
@@ -95,6 +100,10 @@ function parseArgs(argv: string[]): ParsedArgs {
       stats = false;
     } else if (rest[i] === '--stats-per-person') {
       statsPerPerson = true;
+    } else if (rest[i] === '--format') {
+      const next = rest[++i];
+      if (!next || !FORMATS.includes(next as Format)) usage();
+      format = next as Format;
     } else if (rest[i] === '--dry-run') {
       dryRun = true;
     } else if (rest[i] === '--mechanical') {
@@ -113,11 +122,12 @@ function parseArgs(argv: string[]): ParsedArgs {
     provider,
     stats,
     statsPerPerson,
+    format,
   };
 }
 
 async function main(): Promise<void> {
-  const { command, configPath, dryRun, mechanical, windowHours, model, provider, stats, statsPerPerson } =
+  const { command, configPath, dryRun, mechanical, windowHours, model, provider, stats, statsPerPerson, format } =
     parseArgs(process.argv.slice(2));
   let config = loadConfig(configPath);
   // CLI overrides (for quick A/B). Switching provider drops the configured
@@ -145,7 +155,9 @@ async function main(): Promise<void> {
       const isDaily = detailForWindow(activity.window).tier === 'daily';
       const statsMode = config.stats; // 'auto' | 'on' | 'off'
       const showStats = stats ?? (statsMode === 'on' ? true : statsMode === 'off' ? false : !isDaily);
-      const showPerPerson = statsPerPerson ?? config.statsPerPerson;
+      // Per-person stats pair with the team panel by default (show where it shows);
+      // --stats-per-person forces them on regardless.
+      const showPerPerson = statsPerPerson ?? (config.statsPerPerson && showStats);
 
       // AI summary when a provider key is present and not explicitly opted out;
       // otherwise the deterministic mechanical render (also the failure fallback).
@@ -158,6 +170,7 @@ async function main(): Promise<void> {
           const standup = await summarize(activity, {
             create: llm.create,
             model: llm.model,
+            format: format ?? config.format,
             log: (m) => console.error(m),
           });
           console.error(`standup: summarized with ${llm.provider} (${llm.model}).`);

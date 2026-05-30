@@ -61,10 +61,17 @@ export const ConfigSchema = z.object({
    */
   stats: z.enum(['auto', 'on', 'off']).default('auto'),
   /**
-   * Add a per-person stat line under each name. Off by default to keep the shared
-   * post team-level (not a leaderboard); CLI --stats-per-person turns it on.
+   * Add a per-person stat line under each name. On by default and paired with the
+   * team panel (shows wherever team stats show — i.e. weekly+); CLI --stats-per-person
+   * forces it on even on the daily pulse. Set false to keep the post team-level only.
    */
-  statsPerPerson: z.boolean().default(false),
+  statsPerPerson: z.boolean().default(true),
+  /**
+   * Per-person output style: 'bullets' (default — scannable bullet points) or
+   * 'prose' (narrative paragraph). CLI --format overrides. The project summary
+   * stays prose either way.
+   */
+  format: z.enum(['prose', 'bullets']).default('bullets'),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
