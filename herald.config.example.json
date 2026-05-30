@@ -1,0 +1,12 @@
+{
+  "org": "Doppel-Labs",
+  "repos": [],
+  "windowHours": 24,
+  "aliases": {
+    "alice-work": ["alicepersonal"],
+    "carol-work": ["carolpersonal"],
+    "bob-work": ["Bob", "bob@Bobs-MacBook-Pro.local"]
+  },
+  "discord": {},
+  "model": "claude-opus-4-8"
+}
