@@ -1,7 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isPromotionPR, renderMechanical, windowLabel } from './render.js';
-import type { CommitActivity, OrgActivity, PersonActivity, PullRequestActivity } from './types.js';
+import { isPromotionPR, renderMechanical, renderStandup, windowLabel } from './render.js';
+import type {
+  CommitActivity,
+  OrgActivity,
+  PersonActivity,
+  PullRequestActivity,
+  Standup,
+} from './types.js';
 
 const window = { since: '2026-05-29T00:00:00.000Z', until: '2026-05-30T00:00:00.000Z' };
 
@@ -131,6 +137,34 @@ test('renderMechanical dedupes repeated commit messages (rebases)', () => {
   });
   const md = renderMechanical({ org: 'Acme', window, people: [p] });
   assert.equal(md.match(/same change/g)?.length, 1);
+});
+
+test('renderStandup renders the project summary and per-person narratives', () => {
+  const standup: Standup = {
+    org: 'Acme',
+    window,
+    projectSummary: 'The team shipped login and is mid-way on the parser.',
+    people: [
+      {
+        person: { login: 'dünya', displayName: 'Dünya', emails: [] },
+        narrative: 'Shipped login (#42) and is working on a new parser.',
+        highlights: ['#42 Add login (web)'],
+      },
+    ],
+  };
+  const md = renderStandup(standup);
+  assert.match(md, /# 📋 Daily Standup — Acme/);
+  assert.match(md, /The team shipped login and is mid-way on the parser\./);
+  assert.match(md, /## Dünya \(`dünya`\)/);
+  assert.match(md, /Shipped login \(#42\) and is working on a new parser\./);
+  assert.match(md, /- #42 Add login \(web\)/);
+  assert.match(md, /AI-summarized/);
+});
+
+test('renderStandup handles an empty window', () => {
+  const md = renderStandup({ org: 'Acme', window, projectSummary: '', people: [] });
+  assert.match(md, /# 📋 Daily Standup — Acme/);
+  assert.match(md, /No GitHub activity/);
 });
 
 test('renderMechanical uses displayName when it differs from login', () => {
