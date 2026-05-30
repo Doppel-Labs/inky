@@ -46,8 +46,11 @@ corepack enable                            # provides the pinned pnpm version
 pnpm install
 cp .env.example .env                       # add GITHUB_TOKEN
 cp herald.config.example.json herald.config.json   # set your org/repos
-pnpm collect                               # fetch + print org activity (Phase 1)
+pnpm --silent collect                      # fetch + print org activity as JSON (Phase 1)
 ```
+
+> Use `pnpm --silent` so only the JSON reaches stdout (without it, pnpm prints a
+> script banner). The installed `herald` binary needs no such flag.
 
 ## Configuration
 

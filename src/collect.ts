@@ -100,9 +100,15 @@ export async function collect(
   const people = [...buckets.entries()]
     .map(([key, b]) => toPersonActivity(resolver, key, b, window))
     .filter((p): p is PersonActivity => p !== null)
+    .filter((p) => !(config.excludeBots && isBot(p.person.login)))
     .sort(activityRank);
 
   return { org: config.org, window, people };
+}
+
+/** GitHub bot accounts have logins suffixed with `[bot]` (e.g. `dependabot[bot]`). */
+function isBot(login: string): boolean {
+  return login.endsWith('[bot]');
 }
 
 function toPersonActivity(

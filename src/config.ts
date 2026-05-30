@@ -20,6 +20,8 @@ export const ConfigSchema = z.object({
   repos: z.array(z.string()).default([]),
   /** Standup window length in hours (default 24). */
   windowHours: z.number().int().positive().default(24),
+  /** Exclude bot accounts (logins ending in `[bot]`) from the standup. */
+  excludeBots: z.boolean().default(true),
   /** Canonical-login -> [alias logins/emails], to merge split identities. */
   aliases: AliasMapSchema.default({}),
   /** Where the standup is posted. Phase 4 fills this in; optional until then. */
