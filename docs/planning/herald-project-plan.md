@@ -85,7 +85,7 @@ The task-tracker step (`reconcile()`) slots between `normalize()` and `summarize
 |---|---|---|
 | **0 — Scaffold** | TS project, config schema, core type models (`Activity`, `Standup`), env handling, git | Builds & typechecks; config loads |
 | **1 — collect()** | GitHub API fetch: commits, PRs, issues, reviews per author, last 24h; identity aliasing + email→login resolution | Prints structured raw activity for a real org |
-| **2 — normalize() + render()** | Unified `Activity[]`; deterministic digest rendering — **no AI yet** | Posts a real (if mechanical) standup to a Discord channel |
+| **2 — normalize() + render()** | Unified `Activity[]`; **LOC noise filtering** (lockfiles/generated/vendored, ported from team-perf); deterministic digest rendering — **no AI yet** | Posts a real (if mechanical) standup to a Discord channel with sane line counts |
 | **3 — summarize()** | Anthropic SDK, BYO key, prompt caching; per-person + project narrative; tone/format prompt | The actual product: a clean AI-written standup |
 | **4 — Trigger + delivery** | Cron (GitHub Actions or worker) + `/standup now` slash command; webhook/bot post adapters | Runs daily on its own; on-demand command works |
 | **5 — reconcile()** *(paid hook)* | Tie activity to GitHub Issues/Projects (then Linear/Notion); "status vs plan" section | Standup includes a roadmap-status block |

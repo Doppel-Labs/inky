@@ -10,6 +10,7 @@
  *   best-effort: a failed enrichment degrades to 0 lines, never aborts the run.
  */
 import { Octokit } from '@octokit/rest';
+import { sumRealChurn } from './filter.js';
 import type { RawIdentity } from './identity.js';
 import type {
   CommitActivity,
@@ -93,8 +94,16 @@ export async function fetchCommits(
     let deletions = 0;
     try {
       const full = await octokit.rest.repos.getCommit({ owner: org, repo, ref: c.sha });
-      additions = full.data.stats?.additions ?? 0;
-      deletions = full.data.stats?.deletions ?? 0;
+      // Sum only "real" churn — exclude lockfiles/generated/vendored paths.
+      const churn = sumRealChurn(
+        (full.data.files ?? []).map((f) => ({
+          filename: f.filename,
+          additions: f.additions ?? 0,
+          deletions: f.deletions ?? 0,
+        })),
+      );
+      additions = churn.additions;
+      deletions = churn.deletions;
     } catch {
       // best-effort: leave line counts at 0
     }
