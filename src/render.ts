@@ -201,6 +201,11 @@ function teamStatsPanel(t: TeamStats, window: { since: string; until: string }):
   if (t.medianPrCycleHours !== null) {
     lines.push(`- median PR cycle time: **${fmtDuration(t.medianPrCycleHours)}** (open → merged)`);
   }
+  if (t.medianTimeToFirstReviewHours !== null) {
+    lines.push(
+      `- median time to first review: **${fmtDuration(t.medianTimeToFirstReviewHours)}**`,
+    );
+  }
   lines.push(
     `- **${t.commits}** commits` +
       (t.unshippedCommits ? ` (**${t.unshippedCommits}** unshipped)` : ''),

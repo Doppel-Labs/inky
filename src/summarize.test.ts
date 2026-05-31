@@ -192,6 +192,12 @@ test('computeTeamStats derives revert rate and median PR cycle time', () => {
           { repo: 'web', number: 2, title: 't', state: 'merged', additions: 1, deletions: 0, url: 'u', createdAt: '2026-05-28T00:00:00.000Z', mergedAt: '2026-05-30T00:00:00.000Z' },
           { repo: 'web', number: 3, title: 't', state: 'open', additions: 1, deletions: 0, url: 'u', createdAt: '2026-05-29T00:00:00.000Z' },
         ],
+        reviews: [
+          // PR #1 opened 05-29T00:00, first review 6h later → TTFR 6h.
+          { repo: 'web', pullRequestNumber: 1, pullRequestTitle: 't', state: 'approved', pullRequestAuthor: 'x', url: 'u', submittedAt: '2026-05-29T06:00:00.000Z' },
+          // PR #2 was opened before the window → excluded from TTFR even if reviewed.
+          { repo: 'web', pullRequestNumber: 2, pullRequestTitle: 't', state: 'approved', pullRequestAuthor: 'x', url: 'u', submittedAt: '2026-05-29T12:00:00.000Z' },
+        ],
         totals: { ...emptyTotals(), commits: 4, prsMerged: 2, prsOpened: 1, repos: 1 },
       }),
     ],
@@ -200,6 +206,7 @@ test('computeTeamStats derives revert rate and median PR cycle time', () => {
   assert.equal(s.reverts, 1);
   assert.equal(s.revertRate, 1 / 4);
   assert.equal(s.medianPrCycleHours, 36); // median of 24h and 48h
+  assert.equal(s.medianTimeToFirstReviewHours, 6); // only PR #1 (opened in-window)
 });
 
 test('buildGroundingDigest includes verified org totals for aggregate claims', () => {

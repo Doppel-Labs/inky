@@ -146,6 +146,13 @@ export interface TeamStats extends OrgTotals {
   revertRate: number;
   /** Median merged-PR cycle time (createdAt → mergedAt) in hours; null if none. */
   medianPrCycleHours: number | null;
+  /**
+   * Median time-to-first-review (createdAt → first non-self review) in hours for
+   * PRs opened in-window; null if none were reviewed. The review-bottleneck signal
+   * the agentic-era research flags as most valuable — review is the bottleneck
+   * once agents speed up coding.
+   */
+  medianTimeToFirstReviewHours: number | null;
 }
 
 /** A person's bullets for a single repository, so work is grouped by repo. */

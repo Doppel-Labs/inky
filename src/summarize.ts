@@ -312,17 +312,41 @@ function median(values: number[]): number | null {
  */
 export function computeTeamStats(activity: OrgActivity): TeamStats {
   const totals = computeOrgTotals(activity);
+  const since = activity.window.since;
+
+  // Earliest non-self review per PR (repo#number). fetchReviews already drops
+  // self-reviews and keeps in-window reviews; for a PR opened in-window that
+  // earliest review IS its first review (no earlier one can exist).
+  const firstReviewAt = new Map<string, string>();
+  for (const p of activity.people) {
+    for (const r of p.reviews) {
+      const key = `${r.repo}#${r.pullRequestNumber}`;
+      const prev = firstReviewAt.get(key);
+      if (!prev || r.submittedAt < prev) firstReviewAt.set(key, r.submittedAt);
+    }
+  }
 
   let reverts = 0;
   const cycleHours: number[] = [];
+  const ttfrHours: number[] = [];
   for (const p of activity.people) {
     for (const c of p.commits) if (isRevertCommit(c.message)) reverts++;
     for (const pr of p.pullRequests) {
+      if (isPromotionPR(pr.title)) continue; // promotion/auto-merge PRs aren't real review/flow
       // Exclude promotion/auto-merge PRs (e.g. "Staging") — they merge instantly
       // and would drag the cycle-time median to ~0, hiding real feature lead time.
-      if (pr.state === 'merged' && pr.mergedAt && !isPromotionPR(pr.title)) {
+      if (pr.state === 'merged' && pr.mergedAt) {
         const h = (new Date(pr.mergedAt).getTime() - new Date(pr.createdAt).getTime()) / 3_600_000;
         if (h >= 0) cycleHours.push(h);
+      }
+      // Time-to-first-review: only PRs opened in-window (so the first captured
+      // review is genuinely the first), that actually received a review.
+      if (pr.createdAt >= since) {
+        const fr = firstReviewAt.get(`${pr.repo}#${pr.number}`);
+        if (fr) {
+          const h = (new Date(fr).getTime() - new Date(pr.createdAt).getTime()) / 3_600_000;
+          if (h >= 0) ttfrHours.push(h);
+        }
       }
     }
   }
@@ -332,6 +356,7 @@ export function computeTeamStats(activity: OrgActivity): TeamStats {
     reverts,
     revertRate: totals.commits ? reverts / totals.commits : 0,
     medianPrCycleHours: median(cycleHours),
+    medianTimeToFirstReviewHours: median(ttfrHours),
   };
 }
 
