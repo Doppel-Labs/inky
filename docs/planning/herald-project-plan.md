@@ -4,7 +4,7 @@ status: active
 author: Claude main session
 session: herald-spec-planning
 branch: main
-informed_by: User brief (daily automated standup from GitHub → Discord); prior art review (Geekbot/DailyBot/Standuply, GitHub webhooks, LinearB/Swarmia/Haystack); reuse analysis of team-perf (team_perf.py — retrospective performance auditor)
+informed_by: User brief (daily automated standup from GitHub → Discord); prior art review (Geekbot/DailyBot/Standuply, GitHub webhooks, LinearB/Swarmia/Haystack); reuse analysis of a prior retrospective performance auditor (team_perf.py)
 notes: Definitive spec + phased build plan for Herald, a zero-input AI daily-standup Discord bot that reads org GitHub activity and writes the standup for the team. Core MVP = Phases 0–4; task-tracker reconciliation and hosted/paid tier are later phases.
 ---
 
@@ -108,7 +108,7 @@ Design decisions made during implementation, captured so they survive context co
 - **Stack:** TypeScript/Node, pnpm (pinned via `packageManager` + corepack), strict TS (NodeNext). Picked pnpm over npm for monorepo-readiness (future Next.js dashboard), strictness, speed.
 - **Data source:** GitHub **API** (Octokit REST), not local git-log — must work on un-cloned org repos for the hosted tier.
 - **Commits across ALL branches:** `fetchCommits` traverses every branch (not just default), dedupes by SHA, and flags commits not on the default branch as **`unshipped`** — so work-in-progress is visible. Decision: "unshipped" = *not on default branch* (so shared branches like `staging` count as unshipped), NOT per-person feature branches. Accepted tradeoff.
-- **All org repos:** `config.repos: []` means all non-archived repos in the org (via `listOrgRepos`). Tests scoped to `["application","mobile"]`.
+- **All org repos:** `config.repos: []` means all non-archived repos in the org (via `listOrgRepos`). Tests scope to a couple of named repos.
 - **Render is commit-centric & mechanical (no AI yet):** shipped feature PRs → commit work (unshipped first, with branch) → reviews. Doubles as the no-API-key fallback and the ground truth for the Phase 3 summarizer.
 - **Noise filtering — bots:** `excludeBots` (default true) drops `[bot]`-suffixed logins. Surfaced live when `chatgpt-codex-connector[bot]` appeared.
 - **Noise filtering — LOC:** `src/filter.ts` (picomatch) excludes lockfiles/generated/venv/build/cache paths from line counts only (never commit/PR counts). Broadened to cover TS (Next/Vite/etc.) + Python (venv/uv/caches) + other ecosystems. `extraNoisePatterns` config extends defaults per-repo. **Migrations are kept** (real work). Live audit: 0 false positives over 301 real files.
@@ -126,23 +126,29 @@ Design decisions made during implementation, captured so they survive context co
 - **Per-person output grouped by repo:** structured output is `work: RepoWork[]` (one entry per repo, robust vs. regex). `renderStandup` shows a `**repo**` subheader only when a person spans >1 repo. Default per-person style = **bullets** (`format: 'bullets'`; `prose` available); project summary stays prose.
 - **Stats panel (team-level, research-backed):** `computeTeamStats` → `Standup.teamTotals`; rendered first (numbers before prose). Shows PRs merged/opened, **median PR cycle time** (excl. promotion PRs), **median time-to-first-review** (derived from in-window reviews + PR open times, no new fetch; only when team reviews), commits+unshipped, **revert rate** (true reverts only, not `fix:`), repos, net LOC labeled *size, not score*. `stats: 'auto'` shows it on weekly+ (not daily); `--stats`/`--no-stats` force. Per-person stat line default-on, paired with the panel; `--stats-per-person` forces, `statsPerPerson:false` = team-only. Backed by `docs/research/agentic-coding-metrics.md` (web-grounded: DORA 2024/25, SPACE, DX Core 4, GSM, Netflix/Spotify/Anthropic).
 - **OSS hygiene:** committed artifacts (example config, test fixtures, docs) use generic placeholders (`your-org`, `alice`/`bob`) — no real org/contributor identities. Real values live only in gitignored `herald.config.json`/`.env`/`.herald-output/`. (Memory: do not name individuals in committed artifacts.)
+- **Phase 4 — worker (`herald serve`):** the "runs on its own" trigger layer is an **in-process scheduler** ([`croner`](https://github.com/hexagon/croner) — zero-dep, IANA-timezone/DST-aware, overlap `protect`), not external cron. Decision (user, 2026-06-01): a **long-running worker** over GitHub Actions — aligns with the future hosted tier (the same always-on process will later host the slash-command gateway). One scheduled tick = the full `collect→summarize→render→post` pipeline, wrapped so a failed run (GitHub/LLM/Discord error) is **logged and the daemon lives on**; `protect` skips a tick rather than overlapping. `schedule: { cron, timezone }` config (default `0 9 * * *` UTC; keep `windowHours` in step with the cadence). `serve --once` runs a single cycle (live first-test / one-shot for those who *do* want external cron); `serve --once --dry-run` builds + prints with no webhook. SIGINT/SIGTERM shut down cleanly. **Single instance only** — each worker posts, so two would double-post.
+- **Shared build seam:** the collect→(summarize|mechanical)→render logic was extracted out of `cli.ts` into **`buildStandup()` (`src/standup.ts`)** with injectable `collect`+`resolveLlm`, so the CLI `standup` command and the worker run one identical, unit-tested path (no network in tests).
+- **Real Discord post is live:** the webhook URL now resolves **from env first** (`DISCORD_WEBHOOK_URL`) over `config.discord.webhookUrl` via `resolveWebhookUrl` — it's sensitive, so env is its home, keeping it out of committed config and letting a hosted worker inject it. The post path (`postStandupToDiscord`: embeds/chunking/429) was already built + unit-tested; Phase 4 wires it on for both `standup` and `serve`. Verified end-to-end via `serve --once --dry-run` (collect → Sonnet summary → full stats panel, printed). The actual HTTP POST still awaits a real webhook URL the user controls.
+- **Deployability:** multi-stage `Dockerfile` (build compiles to `dist/` with the dev toolchain; runtime ships **prod-only deps + compiled JS** — no tsx/esbuild, so the ignored-esbuild-build-script warning never bites), `Procfile` (`worker:`), `.dockerignore`, and `docs/deployment.md` (Railway/Fly/Render/Docker + schedule/secrets/one-instance caveat). Image not built in this env (no Docker daemon); `pnpm build` + `node dist/cli.js serve` verified locally.
 
 ### Open feedback the user gave (incorporated)
 Show unshipped work ✓ · clean promotion-PR noise ✓ · adjustable time windows ✓ · window-correct titles ✓.
 
 ### Still open / deferred
-- Real Discord post (needs a webhook URL).
+- **`/standup` slash command** — the remaining Phase 4 piece, deferred by the user: needs a registered Discord application + bot token and an interactions transport (gateway vs HTTP). The worker (the autonomous half of Phase 4) ships first.
+- Real Discord **HTTP POST** is wired and unit-tested but not yet fired against a live channel (needs a webhook URL the user controls; set `DISCORD_WEBHOOK_URL`).
 - User will create the least-privilege GitHub token later.
 - Performance: all-branch traversal is ~12s for 2 repos/3 days; could be heavy org-wide (optimize with GraphQL / skip stale branches if needed).
 
 ## 10. Current status (as of 2026-06-01)
 
-- **Phases 0–3 complete and committed** (~29 commits on `main`, 57 tests passing, typecheck clean).
+- **Phases 0–3 complete + the autonomous half of Phase 4** (the worker), all committed on `main`. **70 tests passing, typecheck clean.**
 - **Phase 3 (`summarize()`) done and live-verified** with real AI output (Anthropic + Groq keys are set in `.env`). AI-written per-person update grounded in a factual digest, structured via a forced `emit_standup` tool call, work grouped by repo, bullets by default. Provider-agnostic.
+- **Phase 4 worker done and live-verified:** `herald serve` runs the standup on `config.schedule` via an in-process croner scheduler; the build seam is shared with the CLI through `buildStandup()`; the real Discord post is wired (env `DISCORD_WEBHOOK_URL` preferred). End-to-end verified with `serve --once --dry-run` (collect → Sonnet → stats panel, printed). Deployable: `Dockerfile`/`Procfile`/`.dockerignore` + `docs/deployment.md`. (See §9 for the full decision set.)
 - **Enhancements since Phase 3 (all committed, all in §9):** Sonnet/gpt-oss model defaults + `--provider`/`--model` flags; window→length scaling; repo-grouped bullets; team stats panel (cycle time, time-to-first-review, revert rate, etc.); per-person stats; web-grounded metrics research (`docs/research/agentic-coding-metrics.md`); OSS genericization of committed files.
-- **Working commands:** `herald collect` and `herald standup --dry-run [--days N|--hours N] [--provider p] [--model m] [--format prose|bullets] [--stats|--no-stats] [--stats-per-person] [--mechanical]`. Dev run: `GITHUB_TOKEN=$(gh auth token) pnpm --silent dev standup …`. Outputs saved to gitignored `.herald-output/`.
+- **Working commands:** `herald collect`; `herald standup --dry-run [--days N|--hours N] [--provider p] [--model m] [--format prose|bullets] [--stats|--no-stats] [--stats-per-person] [--mechanical]`; `herald serve [--once] [--dry-run]`. Dev run: `GITHUB_TOKEN=$(gh auth token) pnpm --silent dev <cmd> …`. Outputs saved to gitignored `.herald-output/`.
 - **Web search:** works in the **main thread only** (subagents are denied network in this env) — run grounded research inline, not via a subagent.
-- **Next: Phase 4 — trigger + delivery:** cron schedule + Discord `/standup` slash command (queryable windows via the `windowHours` override) + the **real Discord webhook post** (still the one mocked piece; needs a webhook URL). Alternative quick add: PR size distribution stat. A review/cleanup pass before Phase 4 is also on the table.
+- **Next:** finish Phase 4 with the on-demand **Discord `/standup` slash command** (deferred — needs a Discord app + bot token + interactions transport; queryable windows via the `windowHours` override). To fire the **real webhook post**, the user supplies a `DISCORD_WEBHOOK_URL`. Alternative quick add: PR size distribution stat. A review/cleanup pass is also on the table.
 
 ## 11. Original immediate next step (historical)
 

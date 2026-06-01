@@ -23,6 +23,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
     "@octokit/rest": "^21.0.2",
+    "croner": "^10.0.1",
     "dotenv": "^16.4.7",
     "picomatch": "^4.0.4",
     "zod": "^3.24.1"

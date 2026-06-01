@@ -14,6 +14,9 @@ importers:
       '@octokit/rest':
         specifier: ^21.0.2
         version: 21.1.1
+      croner:
+        specifier: ^10.0.1
+        version: 10.0.1
       dotenv:
         specifier: ^16.4.7
         version: 16.6.1
@@ -278,6 +281,10 @@ packages:
   before-after-hook@3.0.2:
     resolution: {integrity: sha512-Nik3Sc0ncrMK4UUdXQmAnRtzmNQTAAXmXIopizwZ1W1t8QmfJj+zL4OA2I7XPTPW5z5TDqv4hRo/JzouDJnX3A==}
 
+  croner@10.0.1:
+    resolution: {integrity: sha512-ixNtAJndqh173VQ4KodSdJEI6nuioBWI0V1ITNKhZZsO0pEMoDxz539T4FTTbSZ/xIOSuDnzxLVRqBVSvPNE2g==}
+    engines: {node: '>=18.0'}
+
   dotenv@16.6.1:
     resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
     engines: {node: '>=12'}
@@ -497,6 +504,8 @@ snapshots:
   '@types/picomatch@4.0.3': {}
 
   before-after-hook@3.0.2: {}
+
+  croner@10.0.1: {}
 
   dotenv@16.6.1: {}
 

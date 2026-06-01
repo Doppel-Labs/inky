@@ -236,19 +236,19 @@ test('renderStandup shows repo subheaders only when a person spans >1 repo', () 
         person: { login: 'multi', displayName: 'Multi', emails: [] },
         narrative: '',
         work: [
-          { repo: 'application', points: ['#1 ship a thing'] },
+          { repo: 'web', points: ['#1 ship a thing'] },
           { repo: 'mobile', points: ['#2 bump version'] },
         ],
       },
       {
         person: { login: 'solo', displayName: 'Solo', emails: [] },
         narrative: '',
-        work: [{ repo: 'application', points: ['#3 fix a bug'] }],
+        work: [{ repo: 'web', points: ['#3 fix a bug'] }],
       },
     ],
   });
   // multi-repo person gets headers + grouped bullets
-  assert.match(md, /## Multi[\s\S]*\*\*application\*\*\n- #1 ship a thing[\s\S]*\*\*mobile\*\*\n- #2 bump version/);
+  assert.match(md, /## Multi[\s\S]*\*\*web\*\*\n- #1 ship a thing[\s\S]*\*\*mobile\*\*\n- #2 bump version/);
   // solo person's single repo gets no header
   assert.match(md, /## Solo \(`solo`\)\n- #3 fix a bug/);
 });

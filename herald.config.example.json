@@ -9,6 +9,10 @@
     "bob": ["bob-laptop", "bob@bobs-macbook-pro.local"]
   },
   "discord": {},
+  "schedule": {
+    "cron": "0 9 * * 1-5",
+    "timezone": "UTC"
+  },
   "provider": "anthropic",
   "model": "claude-sonnet-4-6",
   "format": "bullets",

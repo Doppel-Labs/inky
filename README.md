@@ -21,7 +21,7 @@ for the full spec, competitive analysis, and roadmap.
 | 1 | `collect()` — GitHub API fetch + identity aliasing | ✅ |
 | 2 | `normalize()` + `render()` — mechanical digest, LOC filtering, Discord delivery | ✅ |
 | 3 | `summarize()` — AI-written standup (BYO key; Anthropic/Groq/OpenAI) | ✅ |
-| 4 | Trigger + delivery — cron + `/standup` slash command | — |
+| 4 | Trigger + delivery — scheduled worker (`serve`) ✅ · `/standup` slash command | ◐ |
 | 5 | `reconcile()` — status vs roadmap (paid hook) | — |
 | 6 | Hosted multi-tenant tier + dashboard (paid) | — |
 
@@ -48,7 +48,10 @@ cp .env.example .env                       # add GITHUB_TOKEN (see token guide b
 cp herald.config.example.json herald.config.json   # set your org/repos
 pnpm --silent collect                      # fetch + print org activity as JSON
 pnpm --silent standup --dry-run --days 1   # build a standup and print it (no Discord)
+pnpm --silent serve --once --dry-run       # run one worker cycle and print it
 ```
+
+To actually post, set `DISCORD_WEBHOOK_URL` (in `.env`) and drop `--dry-run`.
 
 **Need a GitHub token?** See [`docs/github-token-setup.md`](docs/github-token-setup.md)
 for a secure, least-privilege (read-only) setup.
@@ -103,6 +106,22 @@ activity merges correctly:
 ```json
 { "aliases": { "canonical-login": ["alias-login", "personal@example.com"] } }
 ```
+
+## Running on a schedule
+
+`herald serve` makes the standup post on its own — an in-process scheduler
+(no external cron) runs the full pipeline on `config.schedule` and posts to
+Discord:
+
+```jsonc
+"schedule": { "cron": "0 9 * * 1-5", "timezone": "America/New_York" }
+```
+
+Keep `windowHours` in step with the cadence (24 for daily, 168 for weekly). A
+failed run is logged and the worker keeps going; run a single instance so the
+channel isn't posted to twice. Deploy it to any always-on host (Railway, Fly.io,
+Render, Docker) — see [`docs/deployment.md`](docs/deployment.md) for step-by-step
+guides, the `Dockerfile`, and the required secrets.
 
 ## License
 

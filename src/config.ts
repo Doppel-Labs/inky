@@ -30,11 +30,27 @@ export const ConfigSchema = z.object({
   extraNoisePatterns: z.array(z.string()).default([]),
   /** Canonical-login -> [alias logins/emails], to merge split identities. */
   aliases: AliasMapSchema.default({}),
-  /** Where the standup is posted. Phase 4 fills this in; optional until then. */
+  /**
+   * Where the standup is posted. The webhook URL is sensitive (anyone holding it
+   * can post to your channel), so prefer the DISCORD_WEBHOOK_URL env var — env
+   * wins over this. Kept here too for convenient local/self-host setups.
+   */
   discord: z
     .object({
       webhookUrl: z.string().url().optional(),
       channelId: z.string().optional(),
+    })
+    .default({}),
+  /**
+   * When the long-running worker (`herald serve`) posts the standup. `cron` is a
+   * standard 5-field expression; `timezone` is an IANA name (DST-aware). Keep
+   * windowHours in step with the cadence — 24 for a daily 9am post, 168 for a
+   * weekly one. Default: 9am every day, UTC. (Weekdays only: "0 9 * * 1-5".)
+   */
+  schedule: z
+    .object({
+      cron: z.string().default('0 9 * * *'),
+      timezone: z.string().default('UTC'),
     })
     .default({}),
   /**
@@ -82,6 +98,8 @@ export interface Secrets {
   anthropicApiKey?: string;
   groqApiKey?: string;
   openaiApiKey?: string;
+  /** Discord incoming-webhook URL. Sensitive, so it lives in env, not config. */
+  discordWebhookUrl?: string;
 }
 
 export function loadSecrets(env: NodeJS.ProcessEnv = process.env): Secrets {
@@ -96,7 +114,18 @@ export function loadSecrets(env: NodeJS.ProcessEnv = process.env): Secrets {
     anthropicApiKey: env.ANTHROPIC_API_KEY,
     groqApiKey: env.GROQ_API_KEY,
     openaiApiKey: env.OPENAI_API_KEY,
+    discordWebhookUrl: env.DISCORD_WEBHOOK_URL,
   };
+}
+
+/**
+ * Where to post the standup. The webhook URL is a secret, so the env var
+ * (DISCORD_WEBHOOK_URL) takes precedence over config.discord.webhookUrl — that
+ * keeps it out of committed config and lets a hosted worker inject it. Returns
+ * undefined when neither is set (callers fall back to printing).
+ */
+export function resolveWebhookUrl(config: Config, secrets: Secrets): string | undefined {
+  return secrets.discordWebhookUrl ?? config.discord.webhookUrl;
 }
 
 /**

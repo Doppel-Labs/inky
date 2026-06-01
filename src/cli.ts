@@ -4,14 +4,15 @@
  *
  *   herald collect   — fetch + normalize org activity, print as JSON (Phase 1)
  *   herald standup   — collect -> summarize -> render -> deliver (Phases 3–4)
+ *   herald serve     — run the standup on a schedule, forever (Phase 4 worker)
  *
  * The CLI only parses args and wires stages together; all real work lives in
- * the host-agnostic core so cron and the Discord slash command can reuse it.
+ * the host-agnostic core so the worker and a future slash command reuse it.
  */
 import 'dotenv/config';
-import { loadConfig, loadSecrets } from './config.js';
+import { loadConfig, loadSecrets, resolveWebhookUrl } from './config.js';
 
-const COMMANDS = ['collect', 'standup'] as const;
+const COMMANDS = ['collect', 'standup', 'serve'] as const;
 const PROVIDERS = ['anthropic', 'groq', 'openai'] as const;
 type Provider = (typeof PROVIDERS)[number];
 const FORMATS = ['prose', 'bullets'] as const;
@@ -23,7 +24,8 @@ function usage(): never {
 
 Usage:
   herald collect [opts]              Fetch and normalize org activity (prints JSON)
-  herald standup [opts] [--dry-run]  Build and deliver the standup
+  herald standup [opts] [--dry-run]  Build and deliver the standup once
+  herald serve [opts] [--once]       Run the standup on a schedule, forever
 
 Options:
   --config <path>   Config file (default: herald.config.json)
@@ -36,11 +38,13 @@ Options:
   --stats-per-person  Add a per-person stat line under each name
   --format <style>  Per-person style: prose (default) | bullets
   --dry-run         Print the standup to stdout instead of posting to Discord
+  --once            (serve) Run one cycle now and exit, instead of scheduling
   --mechanical      Skip the AI summary; use the deterministic renderer
 
 Environment:
-  GITHUB_TOKEN        GitHub PAT / fine-grained token (repo read)
-  ANTHROPIC_API_KEY   Anthropic key (required for 'standup' once AI lands)
+  GITHUB_TOKEN         GitHub PAT / fine-grained token (repo read)
+  ANTHROPIC_API_KEY    Anthropic key (or GROQ_API_KEY / OPENAI_API_KEY)
+  DISCORD_WEBHOOK_URL  Discord incoming webhook (preferred over config)
 `);
   process.exit(2);
 }
@@ -49,6 +53,7 @@ interface ParsedArgs {
   command: Command;
   configPath: string;
   dryRun: boolean;
+  once: boolean;
   mechanical: boolean;
   windowHours?: number;
   model?: string;
@@ -70,6 +75,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   if (!command || !COMMANDS.includes(command as Command)) usage();
   let configPath = 'herald.config.json';
   let dryRun = false;
+  let once = false;
   let mechanical = false;
   let windowHours: number | undefined;
   let model: string | undefined;
@@ -106,6 +112,8 @@ function parseArgs(argv: string[]): ParsedArgs {
       format = next as Format;
     } else if (rest[i] === '--dry-run') {
       dryRun = true;
+    } else if (rest[i] === '--once') {
+      once = true;
     } else if (rest[i] === '--mechanical') {
       mechanical = true;
     } else {
@@ -116,6 +124,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     command: command as Command,
     configPath,
     dryRun,
+    once,
     mechanical,
     windowHours,
     model,
@@ -127,7 +136,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 }
 
 async function main(): Promise<void> {
-  const { command, configPath, dryRun, mechanical, windowHours, model, provider, stats, statsPerPerson, format } =
+  const { command, configPath, dryRun, once, mechanical, windowHours, model, provider, stats, statsPerPerson, format } =
     parseArgs(process.argv.slice(2));
   let config = loadConfig(configPath);
   // CLI overrides (for quick A/B). Switching provider drops the configured
@@ -145,55 +154,20 @@ async function main(): Promise<void> {
       break;
     }
     case 'standup': {
-      const { collect } = await import('./collect.js');
-      const { renderMechanical, renderStandup } = await import('./render.js');
-      const activity = await collect(config, secrets, { windowHours });
+      const { buildStandup } = await import('./standup.js');
+      const { markdown } = await buildStandup(config, secrets, {
+        windowHours,
+        mechanical,
+        format,
+        stats,
+        statsPerPerson,
+        log: (m) => console.error(m),
+      });
 
-      // Stats panel: --stats/--no-stats force it; otherwise config.stats, where
-      // 'auto' shows it on weekly+ windows but not the daily pulse.
-      const { detailForWindow } = await import('./summarize.js');
-      const isDaily = detailForWindow(activity.window).tier === 'daily';
-      const statsMode = config.stats; // 'auto' | 'on' | 'off'
-      const showStats = stats ?? (statsMode === 'on' ? true : statsMode === 'off' ? false : !isDaily);
-      // Per-person stats pair with the team panel by default (show where it shows);
-      // --stats-per-person forces them on regardless.
-      const showPerPerson = statsPerPerson ?? (config.statsPerPerson && showStats);
-
-      // AI summary when a provider key is present and not explicitly opted out;
-      // otherwise the deterministic mechanical render (also the failure fallback).
-      const { resolveLlm, PROVIDER_ENV } = await import('./llm.js');
-      const llm = mechanical ? null : resolveLlm(config, secrets);
-      let markdown: string;
-      if (llm) {
-        try {
-          const { summarize } = await import('./summarize.js');
-          const standup = await summarize(activity, {
-            create: llm.create,
-            model: llm.model,
-            format: format ?? config.format,
-            log: (m) => console.error(m),
-          });
-          console.error(`standup: summarized with ${llm.provider} (${llm.model}).`);
-          markdown = renderStandup(standup, { showStats, statsPerPerson: showPerPerson });
-        } catch (err) {
-          console.error(
-            `standup: AI summary failed (${(err as Error).message}); falling back to mechanical.`,
-          );
-          markdown = renderMechanical(activity);
-        }
-      } else {
-        if (!mechanical) {
-          console.error(
-            `standup: no ${PROVIDER_ENV[config.provider]} set for provider '${config.provider}' — using mechanical render.`,
-          );
-        }
-        markdown = renderMechanical(activity);
-      }
-
-      const webhookUrl = config.discord.webhookUrl;
+      const webhookUrl = resolveWebhookUrl(config, secrets);
       if (dryRun || !webhookUrl) {
         if (!webhookUrl && !dryRun) {
-          console.error('standup: no discord.webhookUrl configured — printing instead.');
+          console.error('standup: no Discord webhook configured — printing instead.');
         }
         process.stdout.write(markdown);
         break;
@@ -201,6 +175,26 @@ async function main(): Promise<void> {
       const { postStandupToDiscord } = await import('./discord.js');
       const { messages, embeds } = await postStandupToDiscord(webhookUrl, markdown);
       console.error(`standup: posted ${embeds} embed(s) in ${messages} message(s) to Discord.`);
+      break;
+    }
+    case 'serve': {
+      const { startWorker } = await import('./worker.js');
+      const handle = await startWorker(config, secrets, {
+        once,
+        dryRun,
+        log: (m) => console.error(m),
+      });
+      if (once) break; // ran one cycle, fall through to exit
+
+      // Long-running: keep the process alive and shut down cleanly on signals.
+      const shutdown = (sig: string) => {
+        console.error(`herald: received ${sig}, stopping worker…`);
+        handle.stop();
+        process.exit(0);
+      };
+      process.on('SIGINT', () => shutdown('SIGINT'));
+      process.on('SIGTERM', () => shutdown('SIGTERM'));
+      await new Promise<never>(() => {}); // block forever; croner drives the work
       break;
     }
   }
