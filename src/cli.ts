@@ -2,17 +2,18 @@
 /**
  * Herald CLI. Thin trigger layer over the core pipeline.
  *
- *   herald collect   — fetch + normalize org activity, print as JSON (Phase 1)
- *   herald standup   — collect -> summarize -> render -> deliver (Phases 3–4)
- *   herald serve     — run the standup on a schedule, forever (Phase 4 worker)
+ *   herald collect           — fetch + normalize org activity, print JSON (Phase 1)
+ *   herald standup           — collect -> summarize -> render -> deliver (Phases 3–4)
+ *   herald serve             — scheduled posts + the /standup bot, forever (Phase 4)
+ *   herald register-commands — register the /standup slash command with Discord
  *
  * The CLI only parses args and wires stages together; all real work lives in
- * the host-agnostic core so the worker and a future slash command reuse it.
+ * the host-agnostic core so the worker and the slash command reuse it.
  */
 import 'dotenv/config';
 import { loadConfig, loadSecrets, resolveWebhookUrl } from './config.js';
 
-const COMMANDS = ['collect', 'standup', 'serve'] as const;
+const COMMANDS = ['collect', 'standup', 'serve', 'register-commands'] as const;
 const PROVIDERS = ['anthropic', 'groq', 'openai'] as const;
 type Provider = (typeof PROVIDERS)[number];
 const FORMATS = ['prose', 'bullets'] as const;
@@ -25,7 +26,8 @@ function usage(): never {
 Usage:
   herald collect [opts]              Fetch and normalize org activity (prints JSON)
   herald standup [opts] [--dry-run]  Build and deliver the standup once
-  herald serve [opts] [--once]       Run the standup on a schedule, forever
+  herald serve [opts] [--once]       Scheduled posts + the /standup bot, forever
+  herald register-commands [opts]    Register the /standup slash command
 
 Options:
   --config <path>   Config file (default: herald.config.json)
@@ -44,7 +46,8 @@ Options:
 Environment:
   GITHUB_TOKEN         GitHub PAT / fine-grained token (repo read)
   ANTHROPIC_API_KEY    Anthropic key (or GROQ_API_KEY / OPENAI_API_KEY)
-  DISCORD_WEBHOOK_URL  Discord incoming webhook (preferred over config)
+  DISCORD_WEBHOOK_URL  Discord incoming webhook (scheduled posts; preferred over config)
+  DISCORD_BOT_TOKEN    Discord bot token (the /standup slash command)
 `);
   process.exit(2);
 }
@@ -179,22 +182,61 @@ async function main(): Promise<void> {
     }
     case 'serve': {
       const { startWorker } = await import('./worker.js');
-      const handle = await startWorker(config, secrets, {
-        once,
-        dryRun,
-        log: (m) => console.error(m),
-      });
-      if (once) break; // ran one cycle, fall through to exit
+      if (once) {
+        // --once is a single scheduled-post cycle (for testing); no bot loop.
+        await startWorker(config, secrets, { once: true, dryRun, log: (m) => console.error(m) });
+        break;
+      }
+
+      const stops: Array<() => void | Promise<void>> = [];
+
+      // Scheduled posting — runs when a webhook is configured (or in --dry-run).
+      const webhookUrl = resolveWebhookUrl(config, secrets);
+      if (webhookUrl || dryRun) {
+        const worker = await startWorker(config, secrets, { dryRun, log: (m) => console.error(m) });
+        stops.push(worker.stop);
+      }
+
+      // On-demand /standup — runs when a bot token is configured.
+      if (secrets.discordBotToken) {
+        const { startBot } = await import('./bot.js');
+        const bot = await startBot(config, secrets, { log: (m) => console.error(m) });
+        stops.push(bot.stop);
+      }
+
+      if (stops.length === 0) {
+        throw new Error(
+          'herald serve: nothing to run. Set DISCORD_WEBHOOK_URL for scheduled posts and/or DISCORD_BOT_TOKEN for the /standup command.',
+        );
+      }
 
       // Long-running: keep the process alive and shut down cleanly on signals.
-      const shutdown = (sig: string) => {
-        console.error(`herald: received ${sig}, stopping worker…`);
-        handle.stop();
+      const shutdown = async (sig: string) => {
+        console.error(`herald: received ${sig}, stopping…`);
+        await Promise.allSettled(stops.map((stop) => stop()));
         process.exit(0);
       };
-      process.on('SIGINT', () => shutdown('SIGINT'));
-      process.on('SIGTERM', () => shutdown('SIGTERM'));
-      await new Promise<never>(() => {}); // block forever; croner drives the work
+      process.on('SIGINT', () => void shutdown('SIGINT'));
+      process.on('SIGTERM', () => void shutdown('SIGTERM'));
+      await new Promise<never>(() => {}); // block forever; the gateway + cron drive the work
+      break;
+    }
+    case 'register-commands': {
+      const applicationId = config.discord.applicationId;
+      const token = secrets.discordBotToken;
+      if (!token) throw new Error('register-commands: set DISCORD_BOT_TOKEN (the bot token).');
+      if (!applicationId) {
+        throw new Error(
+          'register-commands: set discord.applicationId in config (your Discord application ID).',
+        );
+      }
+      const { registerCommands } = await import('./commands.js');
+      await registerCommands({
+        applicationId,
+        guildId: config.discord.guildId,
+        token,
+        log: (m) => console.error(m),
+      });
       break;
     }
   }

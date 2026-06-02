@@ -21,7 +21,7 @@ for the full spec, competitive analysis, and roadmap.
 | 1 | `collect()` — GitHub API fetch + identity aliasing | ✅ |
 | 2 | `normalize()` + `render()` — mechanical digest, LOC filtering, Discord delivery | ✅ |
 | 3 | `summarize()` — AI-written standup (BYO key; Anthropic/Groq/OpenAI) | ✅ |
-| 4 | Trigger + delivery — scheduled worker (`serve`) ✅ · `/standup` slash command | ◐ |
+| 4 | Trigger + delivery — scheduled worker (`serve`) + `/standup` slash command | ✅ |
 | 5 | `reconcile()` — status vs roadmap (paid hook) | — |
 | 6 | Hosted multi-tenant tier + dashboard (paid) | — |
 
@@ -122,6 +122,23 @@ failed run is logged and the worker keeps going; run a single instance so the
 channel isn't posted to twice. Deploy it to any always-on host (Railway, Fly.io,
 Render, Docker) — see [`docs/deployment.md`](docs/deployment.md) for step-by-step
 guides, the `Dockerfile`, and the required secrets.
+
+### On-demand: the `/standup` slash command
+
+The same `serve` process can also answer a **`/standup`** command in Discord, so
+anyone can pull a standup for any window on demand. It connects over Discord's
+gateway (no public URL needed). Options let a caller override the configured
+defaults per run:
+
+```
+/standup range:This week stats:On per_person:false format:prose
+```
+
+`range` (Today / This week / This month) or a custom `days` (1–90); `stats`
+(On / Off / Auto), `per_person`, and `format` (Bullets / Prose) — all optional,
+each falling back to `herald.config.json`. Enable it by setting `DISCORD_BOT_TOKEN`
++ `discord.applicationId`, running `herald register-commands` once, then
+`herald serve`. Full walkthrough: [`docs/discord-bot-setup.md`](docs/discord-bot-setup.md).
 
 ## License
 

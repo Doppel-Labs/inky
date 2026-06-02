@@ -25,6 +25,12 @@ tick runs the full `collect → summarize → render → post` pipeline. A faile
 (GitHub hiccup, LLM error, Discord 5xx) is logged and the worker keeps going; if a
 run outlasts its interval, the next tick is skipped rather than overlapping.
 
+The **same `serve` process** also hosts the on-demand `/standup` slash command
+when `DISCORD_BOT_TOKEN` is set (a gateway connection, no public URL). It runs
+whichever pieces are configured: scheduled posts need the webhook, `/standup`
+needs the bot token, and you can run either or both. Setup:
+[`docs/discord-bot-setup.md`](discord-bot-setup.md).
+
 ## 1. Configure the schedule
 
 In `herald.config.json`:
@@ -49,7 +55,8 @@ every day) in `UTC`, 24h window.
 | Variable | Required | Purpose |
 |---|---|---|
 | `GITHUB_TOKEN` | yes | Read org activity (a fine-grained PAT with repo read — see `docs/github-token-setup.md`). `GH_TOKEN` also accepted. |
-| `DISCORD_WEBHOOK_URL` | yes (to post) | Discord incoming webhook for the target channel. Preferred over `discord.webhookUrl` in config. |
+| `DISCORD_WEBHOOK_URL` | for scheduled posts | Discord incoming webhook for the target channel. Preferred over `discord.webhookUrl` in config. |
+| `DISCORD_BOT_TOKEN` | for `/standup` | Bot token for the on-demand slash command. Optional — see `docs/discord-bot-setup.md`. |
 | `ANTHROPIC_API_KEY` | for AI summary | Or `GROQ_API_KEY` / `OPENAI_API_KEY`, matching `config.provider`. Without one, Herald posts the deterministic (mechanical) render. |
 
 Create the Discord webhook: **Channel → Edit Channel → Integrations → Webhooks →
@@ -125,8 +132,9 @@ excluded via `.dockerignore`; the runtime stage ships only production deps.)
   one you expect. Test the wiring immediately with `serve --once`.
 - **Double posts** — more than one worker instance is running; scale to one.
 
-## What's next (not in the worker)
+## The `/standup` slash command
 
-The on-demand **`/standup` Discord slash command** is a separate, heavier piece
-(it needs a registered Discord application + bot token and an interactions
-transport). It's deferred — see `herald-project-plan.md` §10.
+On-demand standups run through the same `serve` process via a Discord bot. To
+enable it: create a Discord app, set `DISCORD_BOT_TOKEN` + `discord.applicationId`
+(and optionally `discord.guildId`), run `herald register-commands` once, then
+`herald serve`. Full walkthrough: [`docs/discord-bot-setup.md`](discord-bot-setup.md).

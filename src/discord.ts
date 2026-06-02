@@ -45,6 +45,21 @@ export function chunkMarkdown(text: string, limit = EMBED_DESCRIPTION_LIMIT): st
   return chunks.length ? chunks : [''];
 }
 
+/** A Discord embed as we build them: a chunk of the standup markdown, blurple. */
+export interface StandupEmbed {
+  description: string;
+  color: number;
+}
+
+/**
+ * Turn standup markdown into Discord embeds (chunked to the per-embed limit).
+ * Shared by the webhook poster and the `/standup` slash command so both render
+ * the standup identically.
+ */
+export function standupEmbeds(markdown: string): StandupEmbed[] {
+  return chunkMarkdown(markdown).map((description) => ({ description, color: HERALD_COLOR }));
+}
+
 export interface PostOptions {
   username?: string;
   /** Injectable fetch + sleep for testing. */
@@ -90,10 +105,7 @@ export async function postStandupToDiscord(
   const fetchImpl = opts.fetchImpl ?? fetch;
   const sleep = opts.sleep ?? defaultSleep;
 
-  const embeds = chunkMarkdown(markdown).map((description) => ({
-    description,
-    color: HERALD_COLOR,
-  }));
+  const embeds = standupEmbeds(markdown);
 
   let messages = 0;
   for (let i = 0; i < embeds.length; i += EMBEDS_PER_MESSAGE) {

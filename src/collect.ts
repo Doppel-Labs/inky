@@ -58,6 +58,11 @@ export async function collect(
   const now = opts.now ?? new Date();
   const log = opts.log ?? ((m: string) => process.stderr.write(m + '\n'));
 
+  if (!secrets.githubToken) {
+    throw new Error(
+      'Missing GitHub token. Set GITHUB_TOKEN (a PAT or fine-grained token with repo read access).',
+    );
+  }
   const octokit = makeOctokit(secrets.githubToken);
   const windowHours = opts.windowHours ?? config.windowHours;
   const window = computeWindow(windowHours, now);

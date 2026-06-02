@@ -8,7 +8,10 @@
     "alice": ["alice-personal", "alice@example.com"],
     "bob": ["bob-laptop", "bob@bobs-macbook-pro.local"]
   },
-  "discord": {},
+  "discord": {
+    "applicationId": "",
+    "guildId": ""
+  },
   "schedule": {
     "cron": "0 9 * * 1-5",
     "timezone": "UTC"

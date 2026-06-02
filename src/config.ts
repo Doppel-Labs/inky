@@ -31,14 +31,24 @@ export const ConfigSchema = z.object({
   /** Canonical-login -> [alias logins/emails], to merge split identities. */
   aliases: AliasMapSchema.default({}),
   /**
-   * Where the standup is posted. The webhook URL is sensitive (anyone holding it
-   * can post to your channel), so prefer the DISCORD_WEBHOOK_URL env var — env
-   * wins over this. Kept here too for convenient local/self-host setups.
+   * Where the standup is posted, and the bot identity for the `/standup` slash
+   * command. The webhook URL is sensitive (anyone holding it can post to your
+   * channel), so prefer the DISCORD_WEBHOOK_URL env var — env wins over this.
+   * The bot TOKEN is also a secret and lives in env (DISCORD_BOT_TOKEN), never
+   * here; only the (non-secret) application/guild IDs belong in config.
    */
   discord: z
     .object({
       webhookUrl: z.string().url().optional(),
       channelId: z.string().optional(),
+      /** Discord application (client) ID — needed to register the slash command. */
+      applicationId: z.string().optional(),
+      /**
+       * Register the command to this guild for instant availability (great for
+       * dev/single-server use). Omit to register globally (can take up to ~1h to
+       * appear, but works across every server the bot is in).
+       */
+      guildId: z.string().optional(),
     })
     .default({}),
   /**
@@ -100,21 +110,20 @@ export interface Secrets {
   openaiApiKey?: string;
   /** Discord incoming-webhook URL. Sensitive, so it lives in env, not config. */
   discordWebhookUrl?: string;
+  /** Discord bot token for the `/standup` slash command. Secret → env only. */
+  discordBotToken?: string;
 }
 
 export function loadSecrets(env: NodeJS.ProcessEnv = process.env): Secrets {
-  const githubToken = env.GITHUB_TOKEN ?? env.GH_TOKEN;
-  if (!githubToken) {
-    throw new Error(
-      'Missing GitHub token. Set GITHUB_TOKEN (a PAT or fine-grained token with repo read access).',
-    );
-  }
+  // Presence of the GitHub token is enforced where it's used (collect()), not
+  // here, so setup-only commands like `register-commands` don't demand it.
   return {
-    githubToken,
+    githubToken: env.GITHUB_TOKEN ?? env.GH_TOKEN ?? '',
     anthropicApiKey: env.ANTHROPIC_API_KEY,
     groqApiKey: env.GROQ_API_KEY,
     openaiApiKey: env.OPENAI_API_KEY,
     discordWebhookUrl: env.DISCORD_WEBHOOK_URL,
+    discordBotToken: env.DISCORD_BOT_TOKEN,
   };
 }
 
