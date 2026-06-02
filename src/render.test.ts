@@ -183,6 +183,7 @@ function standupWithStats(): Standup {
       revertRate: 2 / 40,
       medianPrCycleHours: 30,
       medianTimeToFirstReviewHours: 3,
+      prSizes: { xs: 3, s: 5, m: 2, l: 1, xl: 1 },
     },
     people: [
       {
@@ -214,6 +215,8 @@ test('renderStandup shows the team stats panel only when enabled', () => {
   assert.match(withStats, /\*\*7\*\* PRs merged, \*\*9\*\* opened/);
   assert.match(withStats, /median PR cycle time: \*\*30h\*\* \(open → merged\)/);
   assert.match(withStats, /median time to first review: \*\*3h\*\*/);
+  // 12 sized PRs, 8 small (xs+s) → 67%
+  assert.match(withStats, /PR size: \*\*67%\*\* small \(<100 lines\) — XS 3 · S 5 · M 2 · L 1 · XL 1/);
   assert.match(withStats, /\*\*40\*\* commits \(\*\*12\*\* unshipped\)/);
   assert.match(withStats, /\*\*2\*\* reverts \(\*\*5\.0%\*\* of commits\)/);
   assert.match(withStats, /size, not score/);

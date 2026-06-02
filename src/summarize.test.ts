@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildGroundingDigest,
+  classifyPrSize,
   computeOrgTotals,
   computeTeamStats,
   detailForWindow,
@@ -207,6 +208,20 @@ test('computeTeamStats derives revert rate and median PR cycle time', () => {
   assert.equal(s.revertRate, 1 / 4);
   assert.equal(s.medianPrCycleHours, 36); // median of 24h and 48h
   assert.equal(s.medianTimeToFirstReviewHours, 6); // only PR #1 (opened in-window)
+  // both merged PRs are 1 line (additions 1 / deletions 0) → xs; the open PR isn't sized
+  assert.deepEqual(s.prSizes, { xs: 2, s: 0, m: 0, l: 0, xl: 0 });
+});
+
+test('classifyPrSize buckets a PR by total lines changed', () => {
+  assert.equal(classifyPrSize(0), 'xs');
+  assert.equal(classifyPrSize(9), 'xs');
+  assert.equal(classifyPrSize(10), 's');
+  assert.equal(classifyPrSize(99), 's');
+  assert.equal(classifyPrSize(100), 'm');
+  assert.equal(classifyPrSize(499), 'm');
+  assert.equal(classifyPrSize(500), 'l');
+  assert.equal(classifyPrSize(999), 'l');
+  assert.equal(classifyPrSize(1000), 'xl');
 });
 
 test('buildGroundingDigest includes verified org totals for aggregate claims', () => {

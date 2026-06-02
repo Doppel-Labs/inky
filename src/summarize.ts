@@ -20,6 +20,7 @@ import type {
   OrgTotals,
   PersonActivity,
   PersonStandup,
+  PrSizeBuckets,
   Standup,
   TeamStats,
   Window,
@@ -305,6 +306,15 @@ function median(values: number[]): number | null {
   return sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
 }
 
+/** Bucket a PR by total lines changed (additions + deletions). */
+export function classifyPrSize(lines: number): keyof PrSizeBuckets {
+  if (lines < 10) return 'xs';
+  if (lines < 100) return 's';
+  if (lines < 500) return 'm';
+  if (lines < 1000) return 'l';
+  return 'xl';
+}
+
 /**
  * OrgTotals plus two derived signals for the stats panel: revert rate (stability)
  * and median merged-PR cycle time (throughput). Both from data Herald already has
@@ -329,6 +339,7 @@ export function computeTeamStats(activity: OrgActivity): TeamStats {
   let reverts = 0;
   const cycleHours: number[] = [];
   const ttfrHours: number[] = [];
+  const prSizes: PrSizeBuckets = { xs: 0, s: 0, m: 0, l: 0, xl: 0 };
   for (const p of activity.people) {
     for (const c of p.commits) if (isRevertCommit(c.message)) reverts++;
     for (const pr of p.pullRequests) {
@@ -338,6 +349,7 @@ export function computeTeamStats(activity: OrgActivity): TeamStats {
       if (pr.state === 'merged' && pr.mergedAt) {
         const h = (new Date(pr.mergedAt).getTime() - new Date(pr.createdAt).getTime()) / 3_600_000;
         if (h >= 0) cycleHours.push(h);
+        prSizes[classifyPrSize(pr.additions + pr.deletions)]++;
       }
       // Time-to-first-review: only PRs opened in-window (so the first captured
       // review is genuinely the first), that actually received a review.
@@ -357,6 +369,7 @@ export function computeTeamStats(activity: OrgActivity): TeamStats {
     revertRate: totals.commits ? reverts / totals.commits : 0,
     medianPrCycleHours: median(cycleHours),
     medianTimeToFirstReviewHours: median(ttfrHours),
+    prSizes,
   };
 }
 

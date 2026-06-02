@@ -206,6 +206,15 @@ function teamStatsPanel(t: TeamStats, window: { since: string; until: string }):
       `- median time to first review: **${fmtDuration(t.medianTimeToFirstReviewHours)}**`,
     );
   }
+  const sz = t.prSizes;
+  const sizedPrs = sz.xs + sz.s + sz.m + sz.l + sz.xl;
+  if (sizedPrs) {
+    const smallPct = Math.round(((sz.xs + sz.s) / sizedPrs) * 100);
+    lines.push(
+      `- PR size: **${smallPct}%** small (<100 lines) — ` +
+        `XS ${sz.xs} · S ${sz.s} · M ${sz.m} · L ${sz.l} · XL ${sz.xl}`,
+    );
+  }
   lines.push(
     `- **${t.commits}** commits` +
       (t.unshippedCommits ? ` (**${t.unshippedCommits}** unshipped)` : ''),

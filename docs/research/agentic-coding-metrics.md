@@ -94,7 +94,7 @@ Reflecting what the build already extracts (`src/types.ts`, `computeOrgTotals`/`
 | Reviews given | Collaboration | ✅ shipped | Count ≠ review depth |
 | Unshipped→shipped ratio | Delivery vs. WIP | ✅ derivable (unshipped flag) | Branch-workflow dependent |
 | **Time-to-first-review** | Review bottleneck | ✅ shipped — derived from in-window reviews + PR open times (no new fetch needed) | Only shows when the team reviews PRs |
-| PR size distribution | Batch size | ◐ partial (have per-PR add/del) | Agentic inflation |
+| **PR size distribution** | Batch size | ✅ shipped (% small + XS/S/M/L/XL spread, promotions excluded) | Agentic inflation; raw PR add/del (not noise-filtered) |
 | Test-file touch ratio | Test discipline | ⏳ needs fetch (filenames discarded in churn loop) | Gameable |
 | Bug-labeled issue rate | Defect inflow | ⏳ needs labels (not fetched) | Label hygiene |
 | Change failure rate / MTTR | DORA quality | ❌ needs deploy/CI data (out of GitHub-activity scope) | Only if CI integrated |
@@ -108,11 +108,10 @@ Reflecting what the build already extracts (`src/types.ts`, `computeOrgTotals`/`
 
 ## 8. If I were building Herald's stats block
 - **Daily** — keep it a terse pulse, stats *off* by default (Herald does this): the narrative is enough.
-- **Weekly+** — the team panel, in this order: PRs merged/opened → **median PR cycle time** → **median time-to-first-review** (when the team reviews) → commits (+unshipped) → **revert rate** → repos → net LOC (*size, not score*). **This is shipped** — including time-to-first-review, derived from in-window reviews + PR open times (no extra fetch).
+- **Weekly+** — the team panel, in this order: PRs merged/opened → **median PR cycle time** → **median time-to-first-review** (when the team reviews) → **PR size distribution** (% small + XS/S/M/L/XL) → commits (+unshipped) → **revert rate** → repos → net LOC (*size, not score*). **This is shipped** — including time-to-first-review (derived from in-window reviews + PR open times, no extra fetch) and the PR size distribution (% small headline + the spread, promotions excluded).
 - **Next, in value order:**
-  1. **PR size distribution** (median + % large) — cheap from data on hand; small batches are the DORA fundamental AI most often breaks.
-  2. **Week-over-week trends** on the above — a single number is a snapshot; the *direction* is the signal.
-  3. **Test-file touch ratio** — needs retaining filenames in the churn loop; a weak but cheap discipline signal.
+  1. **Week-over-week trends** on the above — a single number is a snapshot; the *direction* is the signal.
+  2. **Test-file touch ratio** — needs retaining filenames in the churn loop; a weak but cheap discipline signal.
 - **Avoid:** per-person LOC/commit leaderboards, raw unfiltered LOC headlines, any single "productivity score."
 
 ## Sources

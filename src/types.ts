@@ -134,9 +134,24 @@ export interface OrgTotals {
 }
 
 /**
- * OrgTotals plus a couple of derived, agentic-era-friendly signals for the stats
- * panel (see docs/research/agentic-coding-metrics.md): a stability proxy (reverts)
- * and a throughput proxy (PR cycle time). Both team-level, both cheap from data
+ * Distribution of merged (non-promotion) PRs by lines changed. Small-and-frequent
+ * PRs are the healthy agentic-era pattern (faster review, lower risk), so the
+ * shape matters more than the raw LOC. Buckets: xs <10, s 10–99, m 100–499,
+ * l 500–999, xl 1000+ lines (additions + deletions).
+ */
+export interface PrSizeBuckets {
+  xs: number;
+  s: number;
+  m: number;
+  l: number;
+  xl: number;
+}
+
+/**
+ * OrgTotals plus a few derived, agentic-era-friendly signals for the stats panel
+ * (see docs/research/agentic-coding-metrics.md): a stability proxy (reverts), a
+ * throughput proxy (PR cycle time), a review-bottleneck proxy (time-to-first-
+ * review), and the PR size distribution. All team-level, all cheap from data
  * Herald already has.
  */
 export interface TeamStats extends OrgTotals {
@@ -153,6 +168,8 @@ export interface TeamStats extends OrgTotals {
    * once agents speed up coding.
    */
   medianTimeToFirstReviewHours: number | null;
+  /** Merged (non-promotion) PRs bucketed by lines changed. */
+  prSizes: PrSizeBuckets;
 }
 
 /** A person's bullets for a single repository, so work is grouped by repo. */
