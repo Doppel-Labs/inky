@@ -29,7 +29,11 @@ const MAX_DAYS = 90;
 export function buildStandupCommand(): SlashCommandBuilder {
   const cmd = new SlashCommandBuilder()
     .setName(STANDUP_COMMAND_NAME)
-    .setDescription("Post the team's standup, summarized from GitHub activity");
+    .setDescription("Post the team's standup, summarized from GitHub activity")
+    // Secure default: admins only. The standup exposes the org's private GitHub
+    // activity, so don't let any member of any server the bot joins trigger it.
+    // Server admins can broaden access per-command in Server Settings → Integrations.
+    .setDefaultMemberPermissions('0');
   cmd.addStringOption((o) =>
     o
       .setName('range')
@@ -170,9 +174,16 @@ export async function handleStandupCommand(
     await ix.respond(toEmbeds(built.markdown));
     log(`herald: /standup answered for ${ix.user} (${describeWindow(req.windowHours)}).`);
   } catch (err) {
-    const message = (err as Error).message;
+    const message = (err as Error).message ?? String(err);
     log(`herald: /standup failed for ${ix.user}: ${message}`);
-    await ix.respondError(`⚠️ Couldn't build the standup: ${message}`);
+    // Keep the channel-facing text short and single-line — never dump a raw API
+    // response body into the channel. The full message is in the logs above.
+    const safe = message.replace(/\s+/g, ' ').slice(0, 200);
+    try {
+      await ix.respondError(`⚠️ Couldn't build the standup: ${safe}`);
+    } catch (replyErr) {
+      log(`herald: failed to send the error reply: ${(replyErr as Error).message}`);
+    }
   }
 }
 

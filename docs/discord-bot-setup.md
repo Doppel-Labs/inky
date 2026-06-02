@@ -96,6 +96,12 @@ All options are optional; each overrides the configured default for that one run
 With no options, `/standup` uses the window and settings from
 `herald.config.json` (`windowHours`, `stats`, `statsPerPerson`, `format`).
 
+> **Who can run it.** `/standup` exposes your org's private GitHub activity, so by
+> default it's **admin-only** (registered with no default permissions). To let
+> others use it, open **Server Settings → Integrations → Herald → `/standup`** and
+> grant the roles/members/channels you want. Restricting the bot to your team's
+> own server (one `guildId`) keeps it out of unrelated servers entirely.
+
 Because building a standup takes a few seconds (it reads GitHub and writes the
 summary), the bot first replies "Herald is thinking…", then edits in the finished
 standup — the normal Discord pattern for slow commands.

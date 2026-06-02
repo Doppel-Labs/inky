@@ -25,12 +25,12 @@ export interface ScheduledJob {
 
 /**
  * Creates a scheduled job. Defaults to croner; tests inject a fake that fires
- * the tick synchronously. `protect` asks the scheduler to skip a tick while a
- * previous run is still in flight.
+ * the tick synchronously. The job always uses overlap protection (a tick is
+ * skipped while a previous run is still in flight).
  */
 export type SchedulerFactory = (
   pattern: string,
-  options: { timezone: string; protect: boolean },
+  options: { timezone: string },
   onTick: () => void | Promise<void>,
 ) => ScheduledJob;
 
@@ -111,7 +111,7 @@ export async function startWorker(
   }
 
   const scheduler = opts.scheduler ?? cronScheduler;
-  job = scheduler(config.schedule.cron, { timezone: config.schedule.timezone, protect: true }, tick);
+  job = scheduler(config.schedule.cron, { timezone: config.schedule.timezone }, tick);
   const next = job.nextRun();
   log(
     `herald: worker started — schedule "${config.schedule.cron}" (${config.schedule.timezone}). ` +

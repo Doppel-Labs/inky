@@ -40,7 +40,7 @@ Options:
   --stats-per-person  Add a per-person stat line under each name
   --format <style>  Per-person style: prose (default) | bullets
   --dry-run         Print the standup to stdout instead of posting to Discord
-  --once            (serve) Run one cycle now and exit, instead of scheduling
+  --once            (serve) Run one scheduled-post cycle now and exit (no bot)
   --mechanical      Skip the AI summary; use the deterministic renderer
 
 Environment:

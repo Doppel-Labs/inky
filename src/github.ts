@@ -363,19 +363,22 @@ export async function fetchIssues(
     const closedInWindow = inWindow(issue.closed_at, window);
     if (!openedInWindow && !closedInWindow) continue;
 
-    const action: IssueActivity['action'] = openedInWindow ? 'opened' : 'closed';
-    out.push({
-      author: { login: issue.user?.login ?? null, avatarUrl: issue.user?.avatar_url ?? null },
-      issue: {
-        repo,
-        number: issue.number,
-        title: issue.title,
-        state: issue.state === 'closed' ? 'closed' : 'open',
-        action,
-        url: issue.html_url,
-        at: openedInWindow ? issue.created_at : issue.closed_at ?? issue.updated_at,
-      },
-    });
+    // An issue opened AND closed in-window is both events — emit one record per
+    // action so the opened/closed counts stay accurate (don't drop the close).
+    const author = { login: issue.user?.login ?? null, avatarUrl: issue.user?.avatar_url ?? null };
+    const base = {
+      repo,
+      number: issue.number,
+      title: issue.title,
+      state: (issue.state === 'closed' ? 'closed' : 'open') as IssueActivity['state'],
+      url: issue.html_url,
+    };
+    if (openedInWindow) {
+      out.push({ author, issue: { ...base, action: 'opened', at: issue.created_at } });
+    }
+    if (closedInWindow) {
+      out.push({ author, issue: { ...base, action: 'closed', at: issue.closed_at ?? issue.updated_at } });
+    }
   }
   return out;
 }

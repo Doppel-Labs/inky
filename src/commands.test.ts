@@ -130,6 +130,43 @@ test('handleStandupCommand reports a build failure in place of the standup', asy
   assert.match(state.error ?? '', /GitHub exploded/);
 });
 
+test('handleStandupCommand truncates a long error and survives a failing error reply', async () => {
+  // A long underlying error is shortened for the channel (full text stays in logs).
+  const long = 'x'.repeat(500);
+  const { ix, state } = makeIx({ range: 'today' });
+  await handleStandupCommand(ix, cfg(), secrets, {
+    buildStandup: fakeBuild({}, long),
+    standupEmbeds: fakeEmbeds,
+    log: () => {},
+  });
+  assert.match(state.error ?? '', /Couldn't build the standup/);
+  assert.ok((state.error ?? '').length < 260, 'channel error should be truncated, not 500 chars');
+
+  // If even the error reply fails, the handler must not throw (it's fire-and-forget).
+  const throwingIx: StandupInteraction = {
+    getString: () => null,
+    getInteger: () => null,
+    getBoolean: () => null,
+    user: 'tester',
+    defer: async () => {},
+    respond: async () => {},
+    respondError: async () => {
+      throw new Error('discord down');
+    },
+  };
+  await assert.doesNotReject(() =>
+    handleStandupCommand(throwingIx, cfg(), secrets, {
+      buildStandup: fakeBuild({}, 'boom'),
+      standupEmbeds: fakeEmbeds,
+      log: () => {},
+    }),
+  );
+});
+
+test('buildStandupCommand is admin-gated by default', () => {
+  assert.equal(buildStandupCommand().toJSON().default_member_permissions, '0');
+});
+
 test('buildStandupCommand exposes range, days, and the report-setting options', () => {
   const json = buildStandupCommand().toJSON();
   assert.equal(json.name, 'standup');

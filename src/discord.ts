@@ -8,7 +8,7 @@
  */
 
 const EMBED_DESCRIPTION_LIMIT = 4096;
-const EMBEDS_PER_MESSAGE = 10;
+export const EMBEDS_PER_MESSAGE = 10;
 const HERALD_COLOR = 0x5865f2; // Discord blurple
 
 /**

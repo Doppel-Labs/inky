@@ -18,8 +18,7 @@ import {
 } from 'discord.js';
 import type { Config, Secrets } from './config.js';
 import { handleStandupCommand, STANDUP_COMMAND_NAME, type StandupInteraction } from './commands.js';
-
-const EMBEDS_PER_MESSAGE = 10;
+import { EMBEDS_PER_MESSAGE } from './discord.js';
 
 export interface BotOptions {
   log?: (msg: string) => void;
@@ -48,7 +47,13 @@ export async function startBot(
   client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     if (!interaction.isChatInputCommand()) return;
     if (interaction.commandName !== STANDUP_COMMAND_NAME) return;
-    await handleStandupCommand(adapt(interaction), config, secrets, { log });
+    // This listener is fire-and-forget: an unhandled rejection here would crash
+    // the process (Node's default), so contain everything.
+    try {
+      await handleStandupCommand(adapt(interaction, log), config, secrets, { log });
+    } catch (err) {
+      log(`herald: /${STANDUP_COMMAND_NAME} handler error: ${(err as Error).message}`);
+    }
   });
 
   client.on(Events.Error, (err) => log(`herald: bot error: ${err.message}`));
@@ -63,7 +68,7 @@ export async function startBot(
 }
 
 /** Adapt a real discord.js interaction to the handler's narrow view. */
-function adapt(interaction: ChatInputCommandInteraction): StandupInteraction {
+function adapt(interaction: ChatInputCommandInteraction, log: (msg: string) => void): StandupInteraction {
   return {
     getString: (name) => interaction.options.getString(name),
     getInteger: (name) => interaction.options.getInteger(name),
@@ -74,9 +79,15 @@ function adapt(interaction: ChatInputCommandInteraction): StandupInteraction {
     },
     respond: async (embeds) => {
       // editReply takes the first batch; the rest go as follow-ups (10/message).
+      // A follow-up failure shouldn't unwind into the build-error path and post
+      // "couldn't build the standup" on top of an already-delivered standup.
       await interaction.editReply({ embeds: embeds.slice(0, EMBEDS_PER_MESSAGE) });
       for (let i = EMBEDS_PER_MESSAGE; i < embeds.length; i += EMBEDS_PER_MESSAGE) {
-        await interaction.followUp({ embeds: embeds.slice(i, i + EMBEDS_PER_MESSAGE) });
+        try {
+          await interaction.followUp({ embeds: embeds.slice(i, i + EMBEDS_PER_MESSAGE) });
+        } catch (err) {
+          log(`herald: follow-up embed batch failed: ${(err as Error).message}`);
+        }
       }
     },
     respondError: async (message) => {
