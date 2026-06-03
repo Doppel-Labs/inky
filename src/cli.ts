@@ -12,6 +12,7 @@
  */
 import 'dotenv/config';
 import { loadConfig, loadSecrets, resolveWebhookUrl } from './config.js';
+import { resolveWindow } from './window.js';
 
 const COMMANDS = ['collect', 'standup', 'serve', 'register-commands'] as const;
 const PROVIDERS = ['anthropic', 'groq', 'openai'] as const;
@@ -33,6 +34,8 @@ Options:
   --config <path>   Config file (default: herald.config.json)
   --days <n>        Window length in days (overrides config windowHours)
   --hours <n>       Window length in hours (overrides config windowHours)
+  --since <date>    Window start (ISO, e.g. 2026-06-01). With --until = exact range
+  --until <date>    Window end (ISO; default: now). Lets you replay a past window
   --provider <p>    LLM provider: anthropic | groq | openai (overrides config)
   --model <id>      LLM model id (overrides config model / provider default)
   --stats           Force the team stats panel on (default: auto on weekly+)
@@ -61,6 +64,8 @@ interface ParsedArgs {
   once: boolean;
   mechanical: boolean;
   windowHours?: number;
+  /** Window end (collect's `now`); set by --until so a past window can be replayed. */
+  windowEnd?: Date;
   model?: string;
   provider?: Provider;
   /** undefined = use config (auto); true/false = forced by --stats/--no-stats. */
@@ -85,6 +90,8 @@ function parseArgs(argv: string[]): ParsedArgs {
   let once = false;
   let mechanical = false;
   let windowHours: number | undefined;
+  let since: string | undefined;
+  let until: string | undefined;
   let model: string | undefined;
   let provider: Provider | undefined;
   let stats: boolean | undefined;
@@ -101,6 +108,12 @@ function parseArgs(argv: string[]): ParsedArgs {
       windowHours = parsePositiveNumber(rest[++i]) * 24;
     } else if (rest[i] === '--hours') {
       windowHours = parsePositiveNumber(rest[++i]);
+    } else if (rest[i] === '--since') {
+      since = rest[++i];
+      if (!since) usage();
+    } else if (rest[i] === '--until') {
+      until = rest[++i];
+      if (!until) usage();
     } else if (rest[i] === '--model') {
       model = rest[++i];
       if (!model) usage();
@@ -132,6 +145,18 @@ function parseArgs(argv: string[]): ParsedArgs {
       usage();
     }
   }
+
+  // Fold --since/--until into the (end, length) pair the core uses.
+  let windowEnd: Date | undefined;
+  try {
+    const resolved = resolveWindow({ since, until, windowHours });
+    windowHours = resolved.windowHours;
+    windowEnd = resolved.windowEnd;
+  } catch (err) {
+    console.error(`herald: ${(err as Error).message}`);
+    usage();
+  }
+
   return {
     command: command as Command,
     configPath,
@@ -139,6 +164,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     once,
     mechanical,
     windowHours,
+    windowEnd,
     model,
     provider,
     stats,
@@ -149,7 +175,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 }
 
 async function main(): Promise<void> {
-  const { command, configPath, dryRun, once, mechanical, windowHours, model, provider, stats, statsPerPerson, roadmap, format } =
+  const { command, configPath, dryRun, once, mechanical, windowHours, windowEnd, model, provider, stats, statsPerPerson, roadmap, format } =
     parseArgs(process.argv.slice(2));
   let config = loadConfig(configPath);
   // CLI overrides (for quick A/B). Switching provider drops the configured
@@ -162,7 +188,7 @@ async function main(): Promise<void> {
   switch (command) {
     case 'collect': {
       const { collect } = await import('./collect.js');
-      const activity = await collect(config, secrets, { windowHours });
+      const activity = await collect(config, secrets, { windowHours, now: windowEnd });
       process.stdout.write(JSON.stringify(activity, null, 2) + '\n');
       break;
     }
@@ -170,6 +196,7 @@ async function main(): Promise<void> {
       const { buildStandup } = await import('./standup.js');
       const { markdown } = await buildStandup(config, secrets, {
         windowHours,
+        now: windowEnd,
         mechanical,
         format,
         stats,
