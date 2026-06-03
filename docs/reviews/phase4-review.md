@@ -34,6 +34,6 @@ summarizer, graceful shutdown) is solid.
 
 ## Open — user actions before the first public push
 
-- [ ] **OSS-1 (blocker)** — git **history** (commits `c734cfc`, and the `d34122d` diff) still contains real contributor logins (`alice-work`, `alicepersonal`, `bob-work`, `carolpersonal`) and a personal email in `src/identity.test.ts`. The working tree is clean. **No remote exists yet**, so the clean fix before the first push is to squash to a fresh initial commit or `git filter-repo` those strings. Destructive — do it deliberately, with the user's go-ahead, right before pushing.
-- [ ] **OSS-2** — local (gitignored) `herald.config.json` holds the real org + aliases. Not committed; replace with the example content or delete before publishing the checkout.
-- [ ] **OSS-3** — local (gitignored) `.env` holds live `ANTHROPIC_API_KEY` / `GROQ_API_KEY`. Rotate both before any public announcement (cheap insurance).
+- [x] **OSS-1 (blocker) — RESOLVED 2026-06-03.** Git history was rewritten with `git filter-repo` (no squash — all 37 commits preserved) to scrub the real contributor logins and the personal machine email that lived in early `src/identity.test.ts` content (mapped to the generic `alice-work`/`bob-work`/`carol-work` fixtures). A full-history re-scan is clean; the org name `Doppel-Labs` (the host org) was kept on purpose. Old history is backed up at `../herald-history-backup.bundle`.
+- [ ] **OSS-2** — local (gitignored) `herald.config.json` holds the real org + aliases. Not committed (won't push), but replace it with the example content or delete it before publishing the checkout.
+- [ ] **OSS-3** — local (gitignored) `.env` holds live `ANTHROPIC_API_KEY` / `GROQ_API_KEY` (and now `DISCORD_WEBHOOK_URL`). Never committed, but rotate the keys before any public announcement (cheap insurance).
