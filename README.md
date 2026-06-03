@@ -91,7 +91,8 @@ inky serve --once --dry-run                         # test one scheduled cycle, 
 
 - **`inky.config.json`** — non-secret config: org, repos, window, identity
   aliases, Discord target, LLM provider/model. Copy from `inky.config.example.json`.
-- **`.env`** — secrets only (`GITHUB_TOKEN`, and one LLM key). Never committed.
+- **`.env`** — secrets only (`GITHUB_TOKEN`, an LLM key, `DISCORD_WEBHOOK_URL`). Never committed.
+- **GitHub token** — a **read-only** fine-grained PAT scoped to your org + the repos you want, with permissions **Contents · Metadata · Pull requests · Issues** (all *Read*). It can't push, change settings, or touch other orgs. Full walkthrough — incl. the classic-token fallback and where to store it when you deploy — in [`docs/github-token-setup.md`](docs/github-token-setup.md).
 
 ### LLM provider (the AI summary)
 

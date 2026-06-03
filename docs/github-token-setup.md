@@ -14,11 +14,12 @@ Inky reads your organization's GitHub activity (commits, pull requests,
 reviews, issues) through the GitHub API. To do that it needs a **read-only**
 token. This guide creates one with the *least privilege* needed.
 
-> **The token never leaves your machine.** Inky is code you run yourself, not a
-> hosted service. The token sits in a local `.env` (gitignored) and is sent only
-> to `github.com`. Nothing is transmitted to the Inky authors, to Anthropic, or
-> to any third party. The only thing that leaves your machine is the finished
-> standup text, and only to the Discord webhook you configure.
+> **You hold the token.** Inky is code *you* run — self-hosted, not a service run
+> by someone else. The token lives in your `.env` (gitignored) when running
+> locally, or in your host's encrypted secrets when you deploy the worker (e.g.
+> Render → Environment). Either way it is sent only to `github.com` — never to the
+> Inky authors, Anthropic, or any third party. The only thing that leaves is the
+> finished standup text, and only to the Discord webhook you configure.
 
 ## Recommended: a fine-grained personal access token (read-only)
 
@@ -73,6 +74,11 @@ GITHUB_TOKEN=github_pat_xxxxxxxxxxxxxxxxxxxx
 ```
 
 Inky reads `GITHUB_TOKEN` (or `GH_TOKEN`) from the environment.
+
+**Deploying the worker?** Don't commit the token — put it in your host's
+environment/secrets instead (e.g. **Render → your service → Environment →
+`GITHUB_TOKEN`**). Same token, same least-privilege; it just lives in the host's
+encrypted env rather than a local `.env`. See [`deployment.md`](deployment.md).
 
 ## Security model (summary)
 
