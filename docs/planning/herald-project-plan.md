@@ -139,7 +139,7 @@ Design decisions made during implementation, captured so they survive context co
 Show unshipped work ✓ · clean promotion-PR noise ✓ · adjustable time windows ✓ · window-correct titles ✓.
 
 ### Still open / deferred
-- **Live Discord run not yet fired** — both the scheduled webhook POST and the `/standup` bot are wired + unit-tested but not yet run against a real channel/server. Needs the user's `DISCORD_WEBHOOK_URL` and/or `DISCORD_BOT_TOKEN` + `discord.applicationId` (then `register-commands`).
+- **Live Discord post — DONE (2026-06-03):** the real webhook POST fired against a live channel (`standup --days 1` → "posted 1 embed in 1 message"). The full collect→summarize→render→post pipeline is proven end-to-end. The **`/standup` bot** is still un-fired (needs the user's `DISCORD_BOT_TOKEN` + `discord.applicationId`, then `register-commands`).
 - **Persisting new defaults from Discord** (vs the per-run option overrides that shipped) — deferred; config is a file (possibly read-only in a container), so mutating it from a slash command is a separate design.
 - User will create the least-privilege GitHub token later.
 - Performance: all-branch traversal is ~12s for 2 repos/3 days; could be heavy org-wide (optimize with GraphQL / skip stale branches if needed).
@@ -153,7 +153,8 @@ Show unshipped work ✓ · clean promotion-PR noise ✓ · adjustable time windo
 - **Phase 5 MVP done:** `reconcile()` ties activity to **GitHub milestones** and adds a grounded `## 📍 Status vs plan` block (movement / progress / at-risk per milestone + a model narrative written only from the verified figures). `config.roadmap.enabled` (off by default) + `--roadmap`/`--no-roadmap`. Pure core (`src/reconcile.ts`, 11 tests). Integration verified live (org has no milestones → 0 tracked → omitted). (See §9 + `docs/planning/phase5-reconcile-design.md`.)
 - **Working commands:** `herald collect`; `herald standup --dry-run [--days N|--hours N] [--provider p] [--model m] [--format prose|bullets] [--stats|--no-stats] [--stats-per-person] [--roadmap|--no-roadmap] [--mechanical]`; `herald serve [--once] [--dry-run]`; `herald register-commands`. Dev run: `GITHUB_TOKEN=$(gh auth token) pnpm --silent dev <cmd> …`. Outputs saved to gitignored `.herald-output/`.
 - **Web search:** works in the **main thread only** (subagents are denied network in this env) — run grounded research inline, not via a subagent.
-- **Next:** a **live run** (user provides `DISCORD_WEBHOOK_URL` and/or `DISCORD_BOT_TOKEN`+`applicationId`; still pending). Then Phase 5 extensions (declared/`ROADMAP.md` roadmap, Projects v2, Linear/Notion, week-over-week trends) or **OSS prep** — note: history scrub + key rotation are required before the first public push (`docs/reviews/phase4-review.md`).
+- **Live:** the webhook post is **firing live** (first real daily posted 2026-06-03). Remaining: the `/standup` bot (needs the user's `DISCORD_BOT_TOKEN`+`applicationId`), and `--since`/`--until` shipped for replaying past windows.
+- **Next:** Phase 5 extensions (declared/`ROADMAP.md` roadmap, Projects v2, Linear/Notion, week-over-week trends) or **OSS prep** — note: history scrub + key rotation are required before the first public push (`docs/reviews/phase4-review.md`).
 
 ## 11. Original immediate next step (historical)
 
