@@ -82,7 +82,7 @@ export async function collect(
   };
 
   const repos = config.repos.length ? config.repos : await listOrgRepos(octokit, config.org);
-  log(`herald: collecting ${config.org} over ${windowHours}h across ${repos.length} repo(s)`);
+  log(`inky: collecting ${config.org} over ${windowHours}h across ${repos.length} repo(s)`);
 
   for (const repo of repos) {
     try {

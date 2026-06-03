@@ -4,7 +4,7 @@ status: active
 author: Claude main session
 session: aa8bf74f-adef-4f15-a54b-4d2aa9d20e9e
 branch: main
-informed_by: herald-project-plan.md §5/§7 (reconcile slots between normalize and summarize; Phase 5 = the paid hook); the existing pipeline (collect.ts, github.ts, summarize.ts grounded emit_standup pattern, computeTeamStats, render.ts panels, config.ts zod+DI style); Standup.statusVsPlan placeholder already in types.ts + rendered in render.ts
+informed_by: inky-project-plan.md §5/§7 (reconcile slots between normalize and summarize; Phase 5 = the paid hook); the existing pipeline (collect.ts, github.ts, summarize.ts grounded emit_standup pattern, computeTeamStats, render.ts panels, config.ts zod+DI style); Standup.statusVsPlan placeholder already in types.ts + rendered in render.ts
 notes: Implementation blueprint for Phase 5 — reconcile(): tie GitHub activity to a roadmap and add a grounded "status vs plan" block. MVP tracker = GitHub Milestones (no new auth, no GraphQL).
 ---
 
@@ -36,7 +36,7 @@ Recommended MVP tracker = **GitHub Milestones**, because:
 
 **Honest caveat (a product decision — see §9):** this assumes teams actually use Milestones.
 Many don't. A fast-follow is a **config-declared roadmap** (a list of goals in
-`herald.config.json` or a `ROADMAP.md`) so the feature works without GitHub Milestones. The
+`inky.config.json` or a `ROADMAP.md`) so the feature works without GitHub Milestones. The
 adapter seam below makes that additive.
 
 ## 3. Data model (`types.ts`)

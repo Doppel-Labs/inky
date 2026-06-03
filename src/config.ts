@@ -52,7 +52,7 @@ export const ConfigSchema = z.object({
     })
     .default({}),
   /**
-   * When the long-running worker (`herald serve`) posts the standup. `cron` is a
+   * When the long-running worker (`inky serve`) posts the standup. `cron` is a
    * standard 5-field expression; `timezone` is an IANA name (DST-aware). Keep
    * windowHours in step with the cadence — 24 for a daily 9am post, 168 for a
    * weekly one. Default: 9am every day, UTC. (Weekdays only: "0 9 * * 1-5".)
@@ -154,13 +154,13 @@ export function resolveWebhookUrl(config: Config, secrets: Secrets): string | un
 }
 
 /**
- * Load and validate config from a JSON file. Defaults to herald.config.json in
+ * Load and validate config from a JSON file. Defaults to inky.config.json in
  * the current directory. Throws a readable error on malformed config.
  */
-export function loadConfig(path = 'herald.config.json'): Config {
+export function loadConfig(path = 'inky.config.json'): Config {
   if (!existsSync(path)) {
     throw new Error(
-      `Config not found at ${path}. Copy herald.config.example.json to ${path} and set your org/repos.`,
+      `Config not found at ${path}. Copy inky.config.example.json to ${path} and set your org/repos.`,
     );
   }
   let raw: unknown;

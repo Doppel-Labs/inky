@@ -2,7 +2,7 @@
  * GitHub API layer. Reads org activity for a time window via Octokit (REST).
  *
  * Design notes:
- * - We read the API, not local clones, so Herald works on org repos nobody has
+ * - We read the API, not local clones, so Inky works on org repos nobody has
  *   checked out (mandatory for the future hosted tier).
  * - "Active in window" PRs = PRs whose updated_at >= since. Because a review or
  *   merge bumps updated_at, this set also surfaces reviews on older PRs.
@@ -23,7 +23,7 @@ import type {
 } from './types.js';
 
 export function makeOctokit(token: string): Octokit {
-  return new Octokit({ auth: token, userAgent: 'herald' });
+  return new Octokit({ auth: token, userAgent: 'inky' });
 }
 
 /** Compute a window ending now, spanning `hours` back. */

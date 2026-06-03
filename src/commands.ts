@@ -110,7 +110,7 @@ export interface StandupInteraction {
   getBoolean(name: string): boolean | null;
   /** Who invoked it — for logging only. */
   user: string;
-  /** Acknowledge within 3s ("Herald is thinking…") so we can take our time. */
+  /** Acknowledge within 3s ("Inky is thinking…") so we can take our time. */
   defer(): Promise<void>;
   /** Post the finished standup. */
   respond(embeds: StandupEmbed[]): Promise<void>;
@@ -172,17 +172,17 @@ export async function handleStandupCommand(
   try {
     const built = await build(config, secrets, { ...req, log });
     await ix.respond(toEmbeds(built.markdown));
-    log(`herald: /standup answered for ${ix.user} (${describeWindow(req.windowHours)}).`);
+    log(`inky: /standup answered for ${ix.user} (${describeWindow(req.windowHours)}).`);
   } catch (err) {
     const message = (err as Error).message ?? String(err);
-    log(`herald: /standup failed for ${ix.user}: ${message}`);
+    log(`inky: /standup failed for ${ix.user}: ${message}`);
     // Keep the channel-facing text short and single-line — never dump a raw API
     // response body into the channel. The full message is in the logs above.
     const safe = message.replace(/\s+/g, ' ').slice(0, 200);
     try {
       await ix.respondError(`⚠️ Couldn't build the standup: ${safe}`);
     } catch (replyErr) {
-      log(`herald: failed to send the error reply: ${(replyErr as Error).message}`);
+      log(`inky: failed to send the error reply: ${(replyErr as Error).message}`);
     }
   }
 }
@@ -214,7 +214,7 @@ export async function registerCommands(opts: RegisterOptions): Promise<void> {
   await put(route, body);
   log(
     opts.guildId
-      ? `herald: registered /${STANDUP_COMMAND_NAME} to guild ${opts.guildId} (instant).`
-      : `herald: registered /${STANDUP_COMMAND_NAME} globally (can take up to ~1h to appear).`,
+      ? `inky: registered /${STANDUP_COMMAND_NAME} to guild ${opts.guildId} (instant).`
+      : `inky: registered /${STANDUP_COMMAND_NAME} globally (can take up to ~1h to appear).`,
   );
 }

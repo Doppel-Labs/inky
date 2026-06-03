@@ -34,6 +34,6 @@ summarizer, graceful shutdown) is solid.
 
 ## Open — user actions before the first public push
 
-- [x] **OSS-1 (blocker) — RESOLVED 2026-06-03.** Git history was rewritten with `git filter-repo` (no squash — all 37 commits preserved) to scrub the real contributor logins and the personal machine email that lived in early `src/identity.test.ts` content (mapped to the generic `alice-work`/`bob-work`/`carol-work` fixtures). A full-history re-scan is clean; the org name `Doppel-Labs` (the host org) was kept on purpose. Old history is backed up at `../herald-history-backup.bundle`.
-- [ ] **OSS-2** — local (gitignored) `herald.config.json` holds the real org + aliases. Not committed (won't push), but replace it with the example content or delete it before publishing the checkout.
+- [x] **OSS-1 (blocker) — RESOLVED 2026-06-03.** Git history was rewritten with `git filter-repo` (no squash — all 37 commits preserved) to scrub the real contributor logins and the personal machine email that lived in early `src/identity.test.ts` content (mapped to the generic `alice-work`/`bob-work`/`carol-work` fixtures). A full-history re-scan is clean; the org name `Doppel-Labs` (the host org) was kept on purpose. Old history is backed up at `../inky-history-backup.bundle`.
+- [ ] **OSS-2** — local (gitignored) `inky.config.json` holds the real org + aliases. Not committed (won't push), but replace it with the example content or delete it before publishing the checkout.
 - [ ] **OSS-3** — local (gitignored) `.env` holds live `ANTHROPIC_API_KEY` / `GROQ_API_KEY` (and now `DISCORD_WEBHOOK_URL`). Never committed, but rotate the keys before any public announcement (cheap insurance).

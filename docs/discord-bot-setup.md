@@ -15,15 +15,15 @@ This guide is for the **on-demand `/standup` slash command** — letting anyone 
 your server pull a standup for any window, with the report settings they want.
 
 `/standup` runs over Discord's **gateway** (a persistent outbound WebSocket), so
-it needs no public URL and works anywhere `herald serve` runs — including your
+it needs no public URL and works anywhere `inky serve` runs — including your
 laptop, with no tunneling.
 
 ## 1. Create a Discord application
 
 1. Go to the [Discord Developer Portal](https://discord.com/developers/applications)
-   → **New Application**. Name it (e.g. "Herald").
+   → **New Application**. Name it (e.g. "Inky").
 2. On **General Information**, copy the **Application ID** → set it as
-   `discord.applicationId` in `herald.config.json`.
+   `discord.applicationId` in `inky.config.json`.
 
 ## 2. Add a bot + get the token
 
@@ -31,14 +31,14 @@ laptop, with no tunneling.
 2. **Reset Token** → copy it → set `DISCORD_BOT_TOKEN` in your `.env` (it's a
    secret — never put it in config).
 3. **Privileged Gateway Intents:** leave them **all off**. Slash-command
-   interactions arrive over the gateway without any privileged intents — Herald
+   interactions arrive over the gateway without any privileged intents — Inky
    never reads message content.
 
 ## 3. Invite the bot to your server
 
 Use the **OAuth2 → URL Generator**:
 - **Scopes:** `bot` and `applications.commands`
-- **Bot Permissions:** none required (Herald replies via the interaction token, not
+- **Bot Permissions:** none required (Inky replies via the interaction token, not
   by posting as the bot, so it needs no channel permissions).
 
 Or build the URL by hand (replace `APP_ID`):
@@ -56,12 +56,12 @@ appear. To make it show up **instantly** in one server:
 
 1. Discord → **User Settings → Advanced → Developer Mode** (on).
 2. Right-click your server → **Copy Server ID**.
-3. Set it as `discord.guildId` in `herald.config.json`.
+3. Set it as `discord.guildId` in `inky.config.json`.
 
 ## 5. Register the command
 
 ```bash
-herald register-commands
+inky register-commands
 ```
 
 This PUTs the `/standup` definition to Discord — to your `guildId` (instant) if
@@ -71,7 +71,7 @@ every restart.
 ## 6. Run the bot
 
 ```bash
-GITHUB_TOKEN=$(gh auth token) herald serve      # or: pnpm dev serve
+GITHUB_TOKEN=$(gh auth token) inky serve      # or: pnpm dev serve
 ```
 
 `serve` starts the scheduled post (if a webhook is set) **and** the `/standup`
@@ -94,16 +94,16 @@ All options are optional; each overrides the configured default for that one run
 | `format` | Bullets · Prose | Per-person style. |
 
 With no options, `/standup` uses the window and settings from
-`herald.config.json` (`windowHours`, `stats`, `statsPerPerson`, `format`).
+`inky.config.json` (`windowHours`, `stats`, `statsPerPerson`, `format`).
 
 > **Who can run it.** `/standup` exposes your org's private GitHub activity, so by
 > default it's **admin-only** (registered with no default permissions). To let
-> others use it, open **Server Settings → Integrations → Herald → `/standup`** and
+> others use it, open **Server Settings → Integrations → Inky → `/standup`** and
 > grant the roles/members/channels you want. Restricting the bot to your team's
 > own server (one `guildId`) keeps it out of unrelated servers entirely.
 
 Because building a standup takes a few seconds (it reads GitHub and writes the
-summary), the bot first replies "Herald is thinking…", then edits in the finished
+summary), the bot first replies "Inky is thinking…", then edits in the finished
 standup — the normal Discord pattern for slow commands.
 
 ## Troubleshooting

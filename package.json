@@ -1,5 +1,5 @@
 {
-  "name": "herald",
+  "name": "inky",
   "version": "0.0.1",
   "description": "Your team's daily standup, written for you. A Discord bot that reads org GitHub activity and writes the standup automatically.",
   "type": "module",
@@ -10,7 +10,7 @@
     "pnpm": ">=10"
   },
   "bin": {
-    "herald": "./dist/cli.js"
+    "inky": "./dist/cli.js"
   },
   "scripts": {
     "build": "tsc",

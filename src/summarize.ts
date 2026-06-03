@@ -331,7 +331,7 @@ export function classifyPrSize(lines: number): keyof PrSizeBuckets {
 
 /**
  * OrgTotals plus two derived signals for the stats panel: revert rate (stability)
- * and median merged-PR cycle time (throughput). Both from data Herald already has
+ * and median merged-PR cycle time (throughput). Both from data Inky already has
  * — no extra fetching — per the agentic-era metrics research.
  */
 export function computeTeamStats(activity: OrgActivity): TeamStats {

@@ -10,9 +10,9 @@ dist/
 .env.local
 *.local
 
-# Herald runtime config (may contain tokens) — commit herald.config.example.* instead
-herald.config.json
-herald.config.local.*
+# Inky runtime config (may contain tokens) — commit inky.config.example.* instead
+inky.config.json
+inky.config.local.*
 
 # Logs
 *.log
@@ -27,4 +27,4 @@ npm-debug.log*
 .playwright-mcp/
 
 # local standup output (scratch)
-.herald-output/
+.inky-output/

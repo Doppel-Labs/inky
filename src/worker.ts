@@ -1,5 +1,5 @@
 /**
- * The long-running worker — Herald's "runs on its own" trigger layer.
+ * The long-running worker — Inky's "runs on its own" trigger layer.
  *
  * A single in-process scheduler (croner) fires the standup on config.schedule.
  * Each tick is wrapped so a failed run (GitHub hiccup, LLM error, Discord 5xx)
@@ -74,22 +74,22 @@ export async function startWorker(
   // rather than silently running daily into the void. (--dry-run is exempt.)
   if (!opts.dryRun && !webhookUrl && !opts.runCycle) {
     throw new Error(
-      'herald serve: no Discord webhook configured. Set DISCORD_WEBHOOK_URL (or discord.webhookUrl in config), or pass --dry-run to print instead.',
+      'inky serve: no Discord webhook configured. Set DISCORD_WEBHOOK_URL (or discord.webhookUrl in config), or pass --dry-run to print instead.',
     );
   }
 
   const runCycle =
     opts.runCycle ??
     (async () => {
-      log('herald: running scheduled standup…');
+      log('inky: running scheduled standup…');
       const built = await buildStandup(config, secrets, { log });
       if (opts.dryRun || !webhookUrl) {
-        log('herald: dry run — printing standup instead of posting.');
+        log('inky: dry run — printing standup instead of posting.');
         process.stdout.write(built.markdown + '\n');
         return;
       }
       const { messages, embeds } = await postStandupToDiscord(webhookUrl, built.markdown);
-      log(`herald: posted ${embeds} embed(s) in ${messages} message(s) to Discord.`);
+      log(`inky: posted ${embeds} embed(s) in ${messages} message(s) to Discord.`);
     });
 
   // One scheduled tick: never throws — a bad run is logged, the worker lives on.
@@ -98,10 +98,10 @@ export async function startWorker(
     try {
       await runCycle();
     } catch (err) {
-      log(`herald: scheduled run failed: ${(err as Error).message}`);
+      log(`inky: scheduled run failed: ${(err as Error).message}`);
     } finally {
       const next = job?.nextRun() ?? null;
-      if (next) log(`herald: next run ${next.toISOString()}.`);
+      if (next) log(`inky: next run ${next.toISOString()}.`);
     }
   };
 
@@ -114,7 +114,7 @@ export async function startWorker(
   job = scheduler(config.schedule.cron, { timezone: config.schedule.timezone }, tick);
   const next = job.nextRun();
   log(
-    `herald: worker started — schedule "${config.schedule.cron}" (${config.schedule.timezone}). ` +
+    `inky: worker started — schedule "${config.schedule.cron}" (${config.schedule.timezone}). ` +
       `Next run: ${next ? next.toISOString() : 'n/a'}.`,
   );
 

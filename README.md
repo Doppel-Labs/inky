@@ -1,18 +1,18 @@
-# Herald
+# Inky 🐙
 
 > Your team's daily standup, written for you.
 
-Herald is a Discord bot that reads an organization's GitHub activity each day and
+Inky is a Discord bot that reads an organization's GitHub activity each day and
 **writes the standup automatically** — per person and project-wide — with zero human
 input. No more "what did you do yesterday?" prompts: the information already lives in
-your commits, PRs, issues, and reviews. Herald reads it and writes the update.
+your commits, PRs, issues, and reviews. Inky reads it and writes the update.
 
 Later it grows into a status tracker that reports where the project stands versus its
 plan, by reconciling activity against a task tracker.
 
 ## Status
 
-Early development. See [`docs/planning/herald-project-plan.md`](docs/planning/herald-project-plan.md)
+Early development. See [`docs/planning/inky-project-plan.md`](docs/planning/inky-project-plan.md)
 for the full spec, competitive analysis, and roadmap.
 
 | Phase | Scope | State |
@@ -45,7 +45,7 @@ delivery (webhook │ bot post)
 corepack enable                            # provides the pinned pnpm version
 pnpm install
 cp .env.example .env                       # add GITHUB_TOKEN (see token guide below)
-cp herald.config.example.json herald.config.json   # set your org/repos
+cp inky.config.example.json inky.config.json   # set your org/repos
 pnpm --silent collect                      # fetch + print org activity as JSON
 pnpm --silent standup --dry-run --days 1   # build a standup and print it (no Discord)
 pnpm --silent serve --once --dry-run       # run one worker cycle and print it
@@ -57,19 +57,19 @@ To actually post, set `DISCORD_WEBHOOK_URL` (in `.env`) and drop `--dry-run`.
 for a secure, least-privilege (read-only) setup.
 
 > Use `pnpm --silent` so only the JSON reaches stdout (without it, pnpm prints a
-> script banner). The installed `herald` binary needs no such flag.
+> script banner). The installed `inky` binary needs no such flag.
 
 ## Configuration
 
-- **`herald.config.json`** — non-secret config: org, repos, window, identity
-  aliases, Discord target, LLM provider/model. Copy from `herald.config.example.json`.
+- **`inky.config.json`** — non-secret config: org, repos, window, identity
+  aliases, Discord target, LLM provider/model. Copy from `inky.config.example.json`.
 - **`.env`** — secrets only (`GITHUB_TOKEN`, and one LLM key). Never committed.
 
 ### LLM provider (the AI summary)
 
 The summary writer is provider-agnostic — one swappable call seam. Pick a
 `provider` in config and set the matching key in `.env`; only one key is needed,
-and with none, Herald falls back to the deterministic mechanical render.
+and with none, Inky falls back to the deterministic mechanical render.
 
 | `provider` | Key (env) | Default model | Notes |
 |---|---|---|---|
@@ -80,7 +80,7 @@ and with none, Herald falls back to the deterministic mechanical render.
 `model` (config) or `--model <id>` overrides the default; `baseUrl` overrides the
 endpoint (OpenAI-compatible providers only). The summary is constrained extraction
 over a pre-built digest, so a small model holds up — defaults favor cost. Run
-`herald standup --mechanical` to skip the AI entirely.
+`inky standup --mechanical` to skip the AI entirely.
 
 ### Report depth & stats
 
@@ -99,7 +99,7 @@ over a pre-built digest, so a small model holds up — defaults favor cost. Run
 
 ### Status vs plan (roadmap)
 
-Herald can tie the window's activity to your **roadmap** and add a **📍 Status vs
+Inky can tie the window's activity to your **roadmap** and add a **📍 Status vs
 plan** block — what advanced, what's stalled, what's at risk. The MVP reads
 **GitHub Milestones** (no extra setup or auth — the milestone's open/closed counts
 and due date give progress and "on track" for free):
@@ -132,7 +132,7 @@ activity merges correctly:
 
 ## Running on a schedule
 
-`herald serve` makes the standup post on its own — an in-process scheduler
+`inky serve` makes the standup post on its own — an in-process scheduler
 (no external cron) runs the full pipeline on `config.schedule` and posts to
 Discord:
 
@@ -159,9 +159,9 @@ defaults per run:
 
 `range` (Today / This week / This month) or a custom `days` (1–90); `stats`
 (On / Off / Auto), `per_person`, and `format` (Bullets / Prose) — all optional,
-each falling back to `herald.config.json`. Enable it by setting `DISCORD_BOT_TOKEN`
-+ `discord.applicationId`, running `herald register-commands` once, then
-`herald serve`. Full walkthrough: [`docs/discord-bot-setup.md`](docs/discord-bot-setup.md).
+each falling back to `inky.config.json`. Enable it by setting `DISCORD_BOT_TOKEN`
++ `discord.applicationId`, running `inky register-commands` once, then
+`inky serve`. Full walkthrough: [`docs/discord-bot-setup.md`](docs/discord-bot-setup.md).
 
 ## License
 

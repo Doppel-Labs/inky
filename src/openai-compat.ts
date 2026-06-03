@@ -1,7 +1,7 @@
 /**
  * OpenAI-compatible LLM adapter: one fetch-based implementation that serves Groq,
  * OpenAI, OpenRouter, a local Ollama — anything speaking the /chat/completions
- * API. It translates Herald's narrow (Anthropic-shaped) `MessagesCreate` request
+ * API. It translates Inky's narrow (Anthropic-shaped) `MessagesCreate` request
  * into a chat-completions call and maps the response back, so summarize() doesn't
  * know or care which provider answered.
  *

@@ -4,19 +4,19 @@ status: active
 author: Claude main session
 session: aa8bf74f-adef-4f15-a54b-4d2aa9d20e9e
 branch: main
-informed_by: Phase 4 worker build (src/worker.ts, src/standup.ts, src/config.ts schedule block); herald-project-plan.md §5 host-agnostic architecture
-notes: How to run Herald as a long-running worker (herald serve) that posts the standup on a schedule, and how to deploy it to Railway / Fly.io / Render / Docker.
+informed_by: Phase 4 worker build (src/worker.ts, src/standup.ts, src/config.ts schedule block); inky-project-plan.md §5 host-agnostic architecture
+notes: How to run Inky as a long-running worker (inky serve) that posts the standup on a schedule, and how to deploy it to Railway / Fly.io / Render / Docker.
 ---
 
-# Deploying Herald
+# Deploying Inky
 
-Herald's core is host-agnostic. To make it **run on its own**, you run the
+Inky's core is host-agnostic. To make it **run on its own**, you run the
 long-running worker:
 
 ```bash
-herald serve          # schedules the standup forever (config.schedule)
-herald serve --once   # run one cycle now and exit (great for a first live test)
-herald serve --once --dry-run   # build + print, don't post (no webhook needed)
+inky serve          # schedules the standup forever (config.schedule)
+inky serve --once   # run one cycle now and exit (great for a first live test)
+inky serve --once --dry-run   # build + print, don't post (no webhook needed)
 ```
 
 `serve` uses an in-process scheduler ([croner](https://github.com/hexagon/croner)),
@@ -33,7 +33,7 @@ needs the bot token, and you can run either or both. Setup:
 
 ## 1. Configure the schedule
 
-In `herald.config.json`:
+In `inky.config.json`:
 
 ```jsonc
 {
@@ -57,7 +57,7 @@ every day) in `UTC`, 24h window.
 | `GITHUB_TOKEN` | yes | Read org activity (a fine-grained PAT with repo read — see `docs/github-token-setup.md`). `GH_TOKEN` also accepted. |
 | `DISCORD_WEBHOOK_URL` | for scheduled posts | Discord incoming webhook for the target channel. Preferred over `discord.webhookUrl` in config. |
 | `DISCORD_BOT_TOKEN` | for `/standup` | Bot token for the on-demand slash command. Optional — see `docs/discord-bot-setup.md`. |
-| `ANTHROPIC_API_KEY` | for AI summary | Or `GROQ_API_KEY` / `OPENAI_API_KEY`, matching `config.provider`. Without one, Herald posts the deterministic (mechanical) render. |
+| `ANTHROPIC_API_KEY` | for AI summary | Or `GROQ_API_KEY` / `OPENAI_API_KEY`, matching `config.provider`. Without one, Inky posts the deterministic (mechanical) render. |
 
 Create the Discord webhook: **Channel → Edit Channel → Integrations → Webhooks →
 New Webhook → Copy Webhook URL**. Anyone with that URL can post to the channel, so
@@ -82,20 +82,20 @@ GITHUB_TOKEN=$(gh auth token) DISCORD_WEBHOOK_URL=https://discord.com/api/webhoo
 
 The worker is a plain Node process; any always-on host works. Build first
 (`pnpm build` → `dist/`), then run `node dist/cli.js serve`. Provide
-`herald.config.json` (commit it to your private fork, or mount it) and set the
+`inky.config.json` (commit it to your private fork, or mount it) and set the
 secrets above as the platform's env vars / secrets.
 
 ### Docker (any host)
 
 ```bash
-docker build -t herald .
-docker run -d --name herald --restart unless-stopped \
-  -v "$PWD/herald.config.json:/app/herald.config.json:ro" \
+docker build -t inky .
+docker run -d --name inky --restart unless-stopped \
+  -v "$PWD/inky.config.json:/app/inky.config.json:ro" \
   -e GITHUB_TOKEN -e ANTHROPIC_API_KEY -e DISCORD_WEBHOOK_URL \
-  herald
+  inky
 ```
 
-The image's default command is `herald serve`. (`docs/` and local secrets are
+The image's default command is `inky serve`. (`docs/` and local secrets are
 excluded via `.dockerignore`; the runtime stage ships only production deps.)
 
 ### Railway
@@ -103,14 +103,14 @@ excluded via `.dockerignore`; the runtime stage ships only production deps.)
 1. New project → Deploy from your repo. Railway detects the `Dockerfile` (or the
    `Procfile`'s `worker:` process).
 2. **Variables**: add `GITHUB_TOKEN`, `DISCORD_WEBHOOK_URL`, and your LLM key.
-3. Commit `herald.config.json` to your (private) fork, or add it via a volume.
+3. Commit `inky.config.json` to your (private) fork, or add it via a volume.
 4. Ensure a single replica. Logs show `worker started — … Next run: …`.
 
 ### Fly.io
 
 1. `fly launch --no-deploy` (it'll use the `Dockerfile`); set `[processes] app = "node dist/cli.js serve"` or keep the image CMD.
 2. `fly secrets set GITHUB_TOKEN=… DISCORD_WEBHOOK_URL=… ANTHROPIC_API_KEY=…`
-3. Bake `herald.config.json` into the image (fork) or attach a volume.
+3. Bake `inky.config.json` into the image (fork) or attach a volume.
 4. `fly deploy`; scale to one machine: `fly scale count 1`.
 
 ### Render
@@ -118,8 +118,8 @@ excluded via `.dockerignore`; the runtime stage ships only production deps.)
 1. New **Background Worker** from your repo (not a Web Service — there's no HTTP
    port). Build: `pnpm install && pnpm build`. Start: `node dist/cli.js serve`.
 2. Add the secrets as **Environment** variables.
-3. Provide `herald.config.json` via the repo (fork) or a Secret File mounted at
-   `/app/herald.config.json`.
+3. Provide `inky.config.json` via the repo (fork) or a Secret File mounted at
+   `/app/inky.config.json`.
 
 ## Troubleshooting
 
@@ -136,5 +136,5 @@ excluded via `.dockerignore`; the runtime stage ships only production deps.)
 
 On-demand standups run through the same `serve` process via a Discord bot. To
 enable it: create a Discord app, set `DISCORD_BOT_TOKEN` + `discord.applicationId`
-(and optionally `discord.guildId`), run `herald register-commands` once, then
-`herald serve`. Full walkthrough: [`docs/discord-bot-setup.md`](discord-bot-setup.md).
+(and optionally `discord.guildId`), run `inky register-commands` once, then
+`inky serve`. Full walkthrough: [`docs/discord-bot-setup.md`](discord-bot-setup.md).

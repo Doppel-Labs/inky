@@ -36,12 +36,12 @@ export async function startBot(
 ): Promise<BotHandle> {
   const log = opts.log ?? ((m: string) => process.stderr.write(m + '\n'));
   const token = secrets.discordBotToken;
-  if (!token) throw new Error('herald: no DISCORD_BOT_TOKEN set for the /standup bot.');
+  if (!token) throw new Error('inky: no DISCORD_BOT_TOKEN set for the /standup bot.');
 
   const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
   client.once(Events.ClientReady, (c) => {
-    log(`herald: bot online as ${c.user.tag}. /${STANDUP_COMMAND_NAME} is ready.`);
+    log(`inky: bot online as ${c.user.tag}. /${STANDUP_COMMAND_NAME} is ready.`);
   });
 
   client.on(Events.InteractionCreate, async (interaction: Interaction) => {
@@ -52,17 +52,17 @@ export async function startBot(
     try {
       await handleStandupCommand(adapt(interaction, log), config, secrets, { log });
     } catch (err) {
-      log(`herald: /${STANDUP_COMMAND_NAME} handler error: ${(err as Error).message}`);
+      log(`inky: /${STANDUP_COMMAND_NAME} handler error: ${(err as Error).message}`);
     }
   });
 
-  client.on(Events.Error, (err) => log(`herald: bot error: ${err.message}`));
+  client.on(Events.Error, (err) => log(`inky: bot error: ${err.message}`));
 
   await client.login(token);
   return {
     stop: async () => {
       await client.destroy();
-      log('herald: bot stopped.');
+      log('inky: bot stopped.');
     },
   };
 }
@@ -86,7 +86,7 @@ function adapt(interaction: ChatInputCommandInteraction, log: (msg: string) => v
         try {
           await interaction.followUp({ embeds: embeds.slice(i, i + EMBEDS_PER_MESSAGE) });
         } catch (err) {
-          log(`herald: follow-up embed batch failed: ${(err as Error).message}`);
+          log(`inky: follow-up embed batch failed: ${(err as Error).message}`);
         }
       }
     },

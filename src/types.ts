@@ -1,5 +1,5 @@
 /**
- * Core domain models for Herald.
+ * Core domain models for Inky.
  *
  * The pipeline is: collect() -> normalize() -> [reconcile()] -> summarize() -> render()
  * Each stage consumes the previous stage's model. These types are the contract
@@ -154,7 +154,7 @@ export interface PrSizeBuckets {
  * (see docs/research/agentic-coding-metrics.md): a stability proxy (reverts), a
  * throughput proxy (PR cycle time), a review-bottleneck proxy (time-to-first-
  * review), and the PR size distribution. All team-level, all cheap from data
- * Herald already has.
+ * Inky already has.
  */
 export interface TeamStats extends OrgTotals {
   /** Commits that revert earlier work — a stability/instability proxy. */

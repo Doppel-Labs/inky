@@ -1,5 +1,5 @@
 /**
- * Real Anthropic adapter: the thin boundary between Herald's narrow
+ * Real Anthropic adapter: the thin boundary between Inky's narrow
  * `MessagesCreate` interface and the official SDK. Everything testable lives in
  * summarize.ts; this file is the one piece that actually hits the network, so it
  * stays a near one-liner and is the only thing that needs a live key.

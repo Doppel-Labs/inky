@@ -9,7 +9,7 @@
 
 const EMBED_DESCRIPTION_LIMIT = 4096;
 export const EMBEDS_PER_MESSAGE = 10;
-const HERALD_COLOR = 0x5865f2; // Discord blurple
+const INKY_COLOR = 0x5865f2; // Discord blurple
 
 /**
  * Split markdown into chunks no longer than `limit`, breaking on line
@@ -57,7 +57,7 @@ export interface StandupEmbed {
  * the standup identically.
  */
 export function standupEmbeds(markdown: string): StandupEmbed[] {
-  return chunkMarkdown(markdown).map((description) => ({ description, color: HERALD_COLOR }));
+  return chunkMarkdown(markdown).map((description) => ({ description, color: INKY_COLOR }));
 }
 
 export interface PostOptions {
@@ -75,7 +75,7 @@ async function postMessage(
   embeds: object[],
   opts: Required<Pick<PostOptions, 'fetchImpl' | 'sleep'>> & Pick<PostOptions, 'username'>,
 ): Promise<void> {
-  const body = JSON.stringify({ username: opts.username ?? 'Herald', embeds });
+  const body = JSON.stringify({ username: opts.username ?? 'Inky', embeds });
   for (let attempt = 0; attempt < 2; attempt++) {
     const res = await opts.fetchImpl(webhookUrl, {
       method: 'POST',

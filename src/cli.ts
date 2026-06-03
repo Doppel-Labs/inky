@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Herald CLI. Thin trigger layer over the core pipeline.
+ * Inky CLI. Thin trigger layer over the core pipeline.
  *
- *   herald collect           — fetch + normalize org activity, print JSON (Phase 1)
- *   herald standup           — collect -> summarize -> render -> deliver (Phases 3–4)
- *   herald serve             — scheduled posts + the /standup bot, forever (Phase 4)
- *   herald register-commands — register the /standup slash command with Discord
+ *   inky collect           — fetch + normalize org activity, print JSON (Phase 1)
+ *   inky standup           — collect -> summarize -> render -> deliver (Phases 3–4)
+ *   inky serve             — scheduled posts + the /standup bot, forever (Phase 4)
+ *   inky register-commands — register the /standup slash command with Discord
  *
  * The CLI only parses args and wires stages together; all real work lives in
  * the host-agnostic core so the worker and the slash command reuse it.
@@ -22,16 +22,16 @@ type Format = (typeof FORMATS)[number];
 type Command = (typeof COMMANDS)[number];
 
 function usage(): never {
-  console.error(`herald — your team's daily standup, written for you
+  console.error(`inky — your team's daily standup, written for you
 
 Usage:
-  herald collect [opts]              Fetch and normalize org activity (prints JSON)
-  herald standup [opts] [--dry-run]  Build and deliver the standup once
-  herald serve [opts] [--once]       Scheduled posts + the /standup bot, forever
-  herald register-commands [opts]    Register the /standup slash command
+  inky collect [opts]              Fetch and normalize org activity (prints JSON)
+  inky standup [opts] [--dry-run]  Build and deliver the standup once
+  inky serve [opts] [--once]       Scheduled posts + the /standup bot, forever
+  inky register-commands [opts]    Register the /standup slash command
 
 Options:
-  --config <path>   Config file (default: herald.config.json)
+  --config <path>   Config file (default: inky.config.json)
   --days <n>        Window length in days (overrides config windowHours)
   --hours <n>       Window length in hours (overrides config windowHours)
   --since <date>    Window start (ISO, e.g. 2026-06-01). With --until = exact range
@@ -85,7 +85,7 @@ function parsePositiveNumber(raw: string | undefined): number {
 function parseArgs(argv: string[]): ParsedArgs {
   const [command, ...rest] = argv;
   if (!command || !COMMANDS.includes(command as Command)) usage();
-  let configPath = 'herald.config.json';
+  let configPath = 'inky.config.json';
   let dryRun = false;
   let once = false;
   let mechanical = false;
@@ -153,7 +153,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     windowHours = resolved.windowHours;
     windowEnd = resolved.windowEnd;
   } catch (err) {
-    console.error(`herald: ${(err as Error).message}`);
+    console.error(`inky: ${(err as Error).message}`);
     usage();
   }
 
@@ -244,13 +244,13 @@ async function main(): Promise<void> {
 
       if (stops.length === 0) {
         throw new Error(
-          'herald serve: nothing to run. Set DISCORD_WEBHOOK_URL for scheduled posts and/or DISCORD_BOT_TOKEN for the /standup command.',
+          'inky serve: nothing to run. Set DISCORD_WEBHOOK_URL for scheduled posts and/or DISCORD_BOT_TOKEN for the /standup command.',
         );
       }
 
       // Long-running: keep the process alive and shut down cleanly on signals.
       const shutdown = async (sig: string) => {
-        console.error(`herald: received ${sig}, stopping…`);
+        console.error(`inky: received ${sig}, stopping…`);
         await Promise.allSettled(stops.map((stop) => stop()));
         process.exit(0);
       };
@@ -281,6 +281,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  console.error(`herald: ${(err as Error).message}`);
+  console.error(`inky: ${(err as Error).message}`);
   process.exit(1);
 });

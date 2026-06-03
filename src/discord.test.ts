@@ -39,7 +39,7 @@ test('postStandupToDiscord batches embeds and posts via injected fetch', async (
   assert.equal(result.messages, calls.length);
   for (const body of calls as Array<{ embeds: unknown[]; username: string }>) {
     assert.ok(body.embeds.length <= 10);
-    assert.equal(body.username, 'Herald');
+    assert.equal(body.username, 'Inky');
   }
 });
 
