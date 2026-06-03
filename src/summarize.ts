@@ -21,6 +21,7 @@ import type {
   PersonActivity,
   PersonStandup,
   PrSizeBuckets,
+  RoadmapStatus,
   Standup,
   TeamStats,
   Window,
@@ -102,6 +103,11 @@ Hard rules:
   repos), use ONLY the "Org totals" figures given in the digest, verbatim. Never
   sum or estimate across people yourself — if a number isn't in Org totals, don't
   state it.
+- If (and ONLY if) the digest includes a "Roadmap status" block, also fill
+  "statusVsPlan": a short, grounded read of where the project stands vs the plan —
+  which milestones advanced, what's stalled or at risk — using ONLY the listed
+  items and their verified figures. Never invent milestone names, progress, or due
+  dates. With no Roadmap status block, omit statusVsPlan entirely.
 - Write for engineers reading their own team's update. Plain, direct, specific.
 
 Return your answer ONLY by calling the ${TOOL_NAME} tool.`;
@@ -148,6 +154,13 @@ const EMIT_TOOL: Tool = {
           required: ['login', 'narrative', 'work'],
         },
       },
+      statusVsPlan: {
+        type: 'string',
+        description:
+          'OPTIONAL. Only when the digest has a "Roadmap status" block: 1–3 sentences on ' +
+          'where the project stands vs the plan (advanced / stalled / at risk), grounded ' +
+          'strictly in the listed milestones and figures. Omit if no roadmap figures are given.',
+      },
     },
     required: ['projectSummary', 'people'],
   },
@@ -167,6 +180,7 @@ const StandupOutputSchema = z.object({
       }),
     )
     .default([]),
+  statusVsPlan: z.string().optional(),
 });
 
 // ── Grounding digest ─────────────────────────────────────────────────────────
@@ -373,13 +387,38 @@ export function computeTeamStats(activity: OrgActivity): TeamStats {
   };
 }
 
+/** Verified roadmap lines for the digest — the model narrates only from these. */
+function roadmapDigestLines(roadmap: RoadmapStatus): string[] {
+  const lines = ['Roadmap status (verified figures — do not recompute; narrate only from these):'];
+  for (const it of roadmap.items) {
+    const m = it.item;
+    const pct = Math.round(it.progress * 100);
+    const bits = [`${m.closedCount}/${m.openCount + m.closedCount} closed (${pct}%)`, it.movement];
+    if (it.closedThisWindow) bits.push(`+${it.closedThisWindow} closed this window`);
+    if (it.atRisk) bits.push(`AT RISK${it.note ? ` — ${it.note}` : ''}`);
+    lines.push(`- ${m.title} (${m.repo}): ${bits.join(', ')}`);
+  }
+  if (roadmap.unplanned.closedIssues) {
+    lines.push(`- ${roadmap.unplanned.closedIssues} issue(s) closed outside any tracked milestone`);
+  }
+  const tt = roadmap.totals;
+  lines.push(
+    `Roadmap rollup: ${tt.tracked} tracked, ${tt.completed} completed, ${tt.advanced} advanced, ` +
+      `${tt.stalled} stalled, ${tt.atRisk} at-risk`,
+  );
+  lines.push('');
+  return lines;
+}
+
 /**
  * Build the factual per-person digest the model summarizes. This — not raw API
  * data — is the model's entire source of truth, so it must be complete and clean.
+ * When a roadmap is passed, its verified figures are included for the status block.
  */
 export function buildGroundingDigest(
   activity: OrgActivity,
   detail: DetailLevel = detailForWindow(activity.window),
+  roadmap?: RoadmapStatus,
 ): string {
   const { org, window, people } = activity;
   const t = computeOrgTotals(activity);
@@ -398,6 +437,8 @@ export function buildGroundingDigest(
   lines.push(`- Repos touched: ${t.repos}`);
   lines.push(`- Net lines: +${fmtNum(t.additions)}/−${fmtNum(t.deletions)}`);
   lines.push('');
+
+  if (roadmap && roadmap.items.length) lines.push(...roadmapDigestLines(roadmap));
 
   for (const p of people) {
     const name =
@@ -473,6 +514,10 @@ export interface SummarizeOptions {
    * summary stays prose either way.
    */
   format?: 'prose' | 'bullets';
+  /** Reconciled roadmap (Phase 5). When set, the digest carries its verified
+   *  figures and the model writes a grounded `statusVsPlan`; it's also attached
+   *  to the returned Standup for the render-side status panel. */
+  roadmap?: RoadmapStatus;
   log?: (msg: string) => void;
 }
 
@@ -502,12 +547,19 @@ export async function summarize(activity: OrgActivity, opts: SummarizeOptions): 
   const log = opts.log ?? (() => {});
 
   // No activity → no need to spend a token; the empty standup is fully factual.
+  // The roadmap panel still attaches (stalled/at-risk items matter on a quiet day).
   if (people.length === 0) {
-    return { org, window, projectSummary: 'No GitHub activity in this window.', people: [] };
+    return {
+      org,
+      window,
+      projectSummary: 'No GitHub activity in this window.',
+      people: [],
+      roadmap: opts.roadmap,
+    };
   }
 
   const detail = detailForWindow(window);
-  const digest = buildGroundingDigest(activity, detail);
+  const digest = buildGroundingDigest(activity, detail, opts.roadmap);
   const format = opts.format ?? 'prose';
   const groupRule =
     `Always GROUP each person's bullets by repository in "work": one entry per repo they ` +
@@ -524,6 +576,12 @@ export async function summarize(activity: OrgActivity, opts: SummarizeOptions): 
     `write-up to match; longer windows mean a more thorough report — but only from real ` +
     `activity, never padding. The project summary is ${detail.projectSentences} sentences ` +
     `of prose regardless of style.\n${styleTarget}`;
+  const roadmapTarget =
+    opts.roadmap && opts.roadmap.items.length
+      ? `\n\nROADMAP — the digest includes a verified "Roadmap status" block. Also write ` +
+        `"statusVsPlan": 1–3 sentences on where the project stands vs the plan (advanced / ` +
+        `stalled / at risk), grounded only in those figures.`
+      : '';
   const res = await opts.create({
     model: opts.model ?? 'claude-sonnet-4-6',
     max_tokens: opts.maxTokens ?? detail.outputTokens,
@@ -531,7 +589,7 @@ export async function summarize(activity: OrgActivity, opts: SummarizeOptions): 
     messages: [
       {
         role: 'user',
-        content: `${depthTarget}\n\nHere is the factual activity digest. Write the standup.\n\n${digest}`,
+        content: `${depthTarget}${roadmapTarget}\n\nHere is the factual activity digest. Write the standup.\n\n${digest}`,
       },
     ],
     tools: [EMIT_TOOL],
@@ -560,12 +618,16 @@ export async function summarize(activity: OrgActivity, opts: SummarizeOptions): 
   });
 
   // Carry verified rollups so render() can show an optional stats panel without
-  // recomputing or letting the model near the numbers.
+  // recomputing or letting the model near the numbers. The roadmap (mechanical)
+  // and its grounded narrative ride along the same way (Phase 5).
+  const statusVsPlan = opts.roadmap?.items.length ? parsed.statusVsPlan?.trim() || undefined : undefined;
   return {
     org,
     window,
     projectSummary: parsed.projectSummary.trim(),
     people: peopleStandups,
     teamTotals: computeTeamStats(activity),
+    statusVsPlan,
+    roadmap: opts.roadmap,
   };
 }

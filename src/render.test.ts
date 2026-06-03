@@ -262,6 +262,47 @@ test('renderStandup handles an empty window', () => {
   assert.match(md, /No GitHub activity/);
 });
 
+test('renderStandup shows the status-vs-plan section with narrative + milestone panel', () => {
+  const md = renderStandup({
+    org: 'Acme',
+    window,
+    projectSummary: 'Busy.',
+    people: [],
+    statusVsPlan: 'Checkout advanced this week; Search is overdue and needs attention.',
+    roadmap: {
+      items: [
+        {
+          item: { id: 'm1', kind: 'milestone', title: 'Checkout v2', url: 'u', repo: 'web', openCount: 3, closedCount: 7, state: 'open' },
+          movement: 'advanced',
+          closedThisWindow: 2,
+          progress: 0.7,
+          atRisk: false,
+        },
+        {
+          item: { id: 'm2', kind: 'milestone', title: 'Search', url: 'u', repo: 'web', openCount: 7, closedCount: 1, state: 'open' },
+          movement: 'stalled',
+          closedThisWindow: 0,
+          progress: 0.125,
+          atRisk: true,
+          note: '9 days overdue',
+        },
+      ],
+      unplanned: { closedIssues: 3 },
+      totals: { tracked: 2, completed: 0, advanced: 1, stalled: 1, atRisk: 1 },
+    },
+  });
+  assert.match(md, /## 📍 Status vs plan/);
+  assert.match(md, /Checkout advanced this week; Search is overdue/);
+  assert.match(md, /- \*\*Checkout v2\*\* — 7\/10 \(70%\) · 📈 advanced \(\+2 this period\)/);
+  assert.match(md, /- \*\*Search\*\* — 1\/8 \(13%\) · 🛑 stalled · ⚠️ 9 days overdue/);
+  assert.match(md, /3 issues closed outside any tracked milestone/);
+});
+
+test('renderStandup omits the status section when there is no roadmap', () => {
+  const md = renderStandup({ org: 'Acme', window, projectSummary: 'x', people: [] });
+  assert.doesNotMatch(md, /Status vs plan/);
+});
+
 test('renderMechanical uses displayName when it differs from login', () => {
   const p = person('ghlogin', {
     person: { login: 'ghlogin', displayName: 'Real Name', emails: [] },

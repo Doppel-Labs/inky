@@ -22,7 +22,7 @@ for the full spec, competitive analysis, and roadmap.
 | 2 | `normalize()` + `render()` — mechanical digest, LOC filtering, Discord delivery | ✅ |
 | 3 | `summarize()` — AI-written standup (BYO key; Anthropic/Groq/OpenAI) | ✅ |
 | 4 | Trigger + delivery — scheduled worker (`serve`) + `/standup` slash command | ✅ |
-| 5 | `reconcile()` — status vs roadmap (paid hook) | — |
+| 5 | `reconcile()` — status vs roadmap (paid hook) | ◐ GitHub milestones; Linear/Notion later |
 | 6 | Hosted multi-tenant tier + dashboard (paid) | — |
 
 ## Architecture
@@ -96,6 +96,29 @@ over a pre-built digest, so a small model holds up — defaults favor cost. Run
 - **Output style.** `format: "bullets"` (default) gives scannable bullet points per
   person; `format: "prose"` (or `--format prose`) gives a narrative paragraph. The
   project summary stays prose either way.
+
+### Status vs plan (roadmap)
+
+Herald can tie the window's activity to your **roadmap** and add a **📍 Status vs
+plan** block — what advanced, what's stalled, what's at risk. The MVP reads
+**GitHub Milestones** (no extra setup or auth — the milestone's open/closed counts
+and due date give progress and "on track" for free):
+
+```jsonc
+"roadmap": {
+  "enabled": true,
+  "source": "github-milestones",
+  "milestoneFilter": "",   // optional: only track milestones whose title contains this
+  "atRiskDays": 7          // flag a milestone at-risk when due within N days (or past)
+}
+```
+
+Off by default; enable in config or force per run with `--roadmap` / `--no-roadmap`.
+Each tracked milestone shows progress, movement (advanced / stalled / completed /
+…), and an ⚠️ at-risk note from its due date — all computed mechanically, with a
+short grounded narrative written from those figures. Teams that don't use
+milestones simply see no block (a config/`ROADMAP.md`-declared roadmap is a planned
+fast-follow). See [`docs/planning/phase5-reconcile-design.md`](docs/planning/phase5-reconcile-design.md).
 
 ### Identity aliases
 

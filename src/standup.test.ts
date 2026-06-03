@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { buildStandup } from './standup.js';
 import { ConfigSchema, type Config, type Secrets } from './config.js';
 import type { CollectOptions } from './collect.js';
+import type { MilestoneRecord } from './github.js';
 import type { MessagesCreate } from './summarize.js';
 import type { OrgActivity, Window } from './types.js';
 
@@ -166,6 +167,81 @@ test('buildStandup uses the mechanical render when no provider key is set', asyn
     deps: { collect: fakeCollect(activityFor(daily)), resolveLlm: () => null },
   });
   assert.equal(res.via, 'mechanical');
+});
+
+test('buildStandup adds the status-vs-plan block when roadmap is enabled', async () => {
+  const activity: OrgActivity = {
+    org: 'Acme',
+    window: weekly,
+    people: [
+      {
+        person: { login: 'alice', displayName: 'Alice', emails: [] },
+        commits: [],
+        pullRequests: [],
+        reviews: [],
+        issues: [
+          {
+            repo: 'web',
+            number: 5,
+            title: 'Add checkout',
+            state: 'closed',
+            action: 'closed',
+            url: 'u',
+            at: weekly.until,
+            milestoneNumber: 1,
+          },
+        ],
+        totals: {
+          commits: 0,
+          unshippedCommits: 0,
+          additions: 0,
+          deletions: 0,
+          prsOpened: 0,
+          prsMerged: 0,
+          reviewsGiven: 0,
+          issuesOpened: 0,
+          issuesClosed: 1,
+          repos: 1,
+        },
+      },
+    ],
+  };
+  const milestones: MilestoneRecord[] = [
+    { repo: 'web', number: 1, title: 'Checkout v2', url: 'u', state: 'open', openIssues: 2, closedIssues: 8 },
+  ];
+  // Uses the real reconcile() (pure) — only collect/collectRoadmap/llm are faked.
+  const res = await buildStandup(cfg(), secrets, {
+    roadmap: true,
+    now: new Date('2026-05-30T00:00:00.000Z'),
+    deps: {
+      collect: fakeCollect(activity),
+      collectRoadmap: async () => milestones,
+      resolveLlm: fakeLlm(
+        emitCreate({ projectSummary: 's', people: [], statusVsPlan: 'Checkout v2 is advancing.' }),
+      ),
+    },
+  });
+  assert.match(res.markdown, /## 📍 Status vs plan/);
+  assert.match(res.markdown, /Checkout v2 is advancing\./);
+  assert.match(res.markdown, /\*\*Checkout v2\*\* — 8\/10 \(80%\) · 📈 advanced \(\+1 this period\)/);
+});
+
+test('buildStandup skips roadmap when disabled (default)', async () => {
+  let called = false;
+  const res = await buildStandup(cfg(), secrets, {
+    deps: {
+      collect: fakeCollect(activityFor(weekly)),
+      collectRoadmap: async () => {
+        called = true;
+        return [];
+      },
+      resolveLlm: fakeLlm(
+        emitCreate({ projectSummary: 's', people: [{ login: 'alice', narrative: 'y', work: [] }] }),
+      ),
+    },
+  });
+  assert.equal(called, false);
+  assert.doesNotMatch(res.markdown, /Status vs plan/);
 });
 
 test('buildStandup threads windowHours to collect and flags an empty window', async () => {

@@ -10,7 +10,32 @@ import {
   summarize,
 } from './summarize.js';
 import type { CreateMessageParams, MessageResponse, MessagesCreate } from './summarize.js';
-import type { OrgActivity, PersonActivity } from './types.js';
+import type { OrgActivity, PersonActivity, RoadmapStatus } from './types.js';
+
+function sampleRoadmap(): RoadmapStatus {
+  return {
+    items: [
+      {
+        item: {
+          id: 'milestone:web#1',
+          kind: 'milestone',
+          title: 'Checkout v2',
+          url: 'https://gh/web/milestone/1',
+          repo: 'web',
+          openCount: 3,
+          closedCount: 7,
+          state: 'open',
+        },
+        movement: 'advanced',
+        closedThisWindow: 2,
+        progress: 0.7,
+        atRisk: false,
+      },
+    ],
+    unplanned: { closedIssues: 0 },
+    totals: { tracked: 1, completed: 0, advanced: 1, stalled: 0, atRisk: 0 },
+  };
+}
 
 const window = { since: '2026-05-29T00:00:00.000Z', until: '2026-05-30T00:00:00.000Z' };
 
@@ -317,6 +342,38 @@ test('summarize switches the per-person style with format: bullets', async () =>
   });
   assert.match(bulletRec.params!.messages[0]!.content, /STYLE — bullets/);
   assert.match(bulletRec.params!.messages[0]!.content, /do NOT write a prose paragraph/);
+});
+
+test('buildGroundingDigest includes the roadmap block when a roadmap is given', () => {
+  const digest = buildGroundingDigest(sampleActivity, detailForWindow(window), sampleRoadmap());
+  assert.match(digest, /Roadmap status \(verified/);
+  assert.match(digest, /Checkout v2 \(web\): 7\/10 closed \(70%\), advanced, \+2 closed this window/);
+  assert.match(digest, /Roadmap rollup: 1 tracked, 0 completed, 1 advanced, 0 stalled, 0 at-risk/);
+});
+
+test('summarize carries the roadmap + grounded statusVsPlan when a roadmap is given', async () => {
+  const record: { params?: CreateMessageParams } = {};
+  const standup = await summarize(sampleActivity, {
+    create: fakeCreate(
+      { projectSummary: 's', people: [], statusVsPlan: 'Checkout v2 advanced; on track.' },
+      record,
+    ),
+    roadmap: sampleRoadmap(),
+  });
+  // the roadmap reached the model, and it was asked for statusVsPlan
+  assert.match(record.params!.messages[0]!.content, /Roadmap status \(verified/);
+  assert.match(record.params!.messages[0]!.content, /ROADMAP —/);
+  // the standup carries both the model narrative and the mechanical roadmap
+  assert.equal(standup.statusVsPlan, 'Checkout v2 advanced; on track.');
+  assert.equal(standup.roadmap?.items.length, 1);
+});
+
+test('summarize drops statusVsPlan when no roadmap is given', async () => {
+  const standup = await summarize(sampleActivity, {
+    create: fakeCreate({ projectSummary: 's', people: [], statusVsPlan: 'should be ignored' }),
+  });
+  assert.equal(standup.statusVsPlan, undefined);
+  assert.equal(standup.roadmap, undefined);
 });
 
 test('summarize throws if the model returns no tool call', async () => {

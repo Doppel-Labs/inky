@@ -98,6 +98,22 @@ export const ConfigSchema = z.object({
    * stays prose either way.
    */
   format: z.enum(['prose', 'bullets']).default('bullets'),
+  /**
+   * Roadmap reconciliation (Phase 5): tie activity to the plan and add a
+   * "status vs plan" block. MVP source = GitHub Milestones (no new auth). Off by
+   * default; CLI --roadmap/--no-roadmap override.
+   */
+  roadmap: z
+    .object({
+      enabled: z.boolean().default(false),
+      /** Where "the plan" lives. MVP: github-milestones (future: declared/projects/linear/notion). */
+      source: z.enum(['github-milestones']).default('github-milestones'),
+      /** Track only milestones whose title contains this (case-insensitive). Omit = all. */
+      milestoneFilter: z.string().optional(),
+      /** Flag a milestone at-risk when its due date is within this many days (or past). */
+      atRiskDays: z.number().int().positive().default(7),
+    })
+    .default({}),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

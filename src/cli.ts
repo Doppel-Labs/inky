@@ -38,6 +38,8 @@ Options:
   --stats           Force the team stats panel on (default: auto on weekly+)
   --no-stats        Force the team stats panel off
   --stats-per-person  Add a per-person stat line under each name
+  --roadmap         Add the status-vs-plan block (from GitHub milestones)
+  --no-roadmap      Omit the status-vs-plan block
   --format <style>  Per-person style: prose (default) | bullets
   --dry-run         Print the standup to stdout instead of posting to Discord
   --once            (serve) Run one scheduled-post cycle now and exit (no bot)
@@ -64,6 +66,8 @@ interface ParsedArgs {
   /** undefined = use config (auto); true/false = forced by --stats/--no-stats. */
   stats?: boolean;
   statsPerPerson?: boolean;
+  /** undefined = config.roadmap.enabled; true/false = forced by --roadmap/--no-roadmap. */
+  roadmap?: boolean;
   format?: Format;
 }
 
@@ -85,6 +89,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   let provider: Provider | undefined;
   let stats: boolean | undefined;
   let statsPerPerson: boolean | undefined;
+  let roadmap: boolean | undefined;
   let format: Format | undefined;
   for (let i = 0; i < rest.length; i++) {
     if (rest[i] === '--config') {
@@ -109,6 +114,10 @@ function parseArgs(argv: string[]): ParsedArgs {
       stats = false;
     } else if (rest[i] === '--stats-per-person') {
       statsPerPerson = true;
+    } else if (rest[i] === '--roadmap') {
+      roadmap = true;
+    } else if (rest[i] === '--no-roadmap') {
+      roadmap = false;
     } else if (rest[i] === '--format') {
       const next = rest[++i];
       if (!next || !FORMATS.includes(next as Format)) usage();
@@ -134,12 +143,13 @@ function parseArgs(argv: string[]): ParsedArgs {
     provider,
     stats,
     statsPerPerson,
+    roadmap,
     format,
   };
 }
 
 async function main(): Promise<void> {
-  const { command, configPath, dryRun, once, mechanical, windowHours, model, provider, stats, statsPerPerson, format } =
+  const { command, configPath, dryRun, once, mechanical, windowHours, model, provider, stats, statsPerPerson, roadmap, format } =
     parseArgs(process.argv.slice(2));
   let config = loadConfig(configPath);
   // CLI overrides (for quick A/B). Switching provider drops the configured
@@ -164,6 +174,7 @@ async function main(): Promise<void> {
         format,
         stats,
         statsPerPerson,
+        roadmap,
         log: (m) => console.error(m),
       });
 

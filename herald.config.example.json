@@ -20,5 +20,10 @@
   "model": "claude-sonnet-4-6",
   "format": "bullets",
   "stats": "auto",
-  "statsPerPerson": true
+  "statsPerPerson": true,
+  "roadmap": {
+    "enabled": false,
+    "source": "github-milestones",
+    "atRiskDays": 7
+  }
 }

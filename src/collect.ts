@@ -11,10 +11,12 @@ import {
   computeWindow,
   fetchCommits,
   fetchIssues,
+  fetchMilestones,
   fetchPullRequests,
   fetchReviews,
   listOrgRepos,
   makeOctokit,
+  type MilestoneRecord,
 } from './github.js';
 import type {
   CommitActivity,
@@ -118,6 +120,33 @@ export async function collect(
     .sort(activityRank);
 
   return { org: config.org, window, people };
+}
+
+/**
+ * Fetch the roadmap (GitHub milestones across the configured repos) for Phase 5
+ * reconciliation. Separate from collect() so the standup path doesn't pay for it
+ * unless roadmap is enabled. One bad repo warns and is skipped, never aborts.
+ */
+export async function collectRoadmap(
+  config: Config,
+  secrets: Secrets,
+  opts: { log?: (msg: string) => void } = {},
+): Promise<MilestoneRecord[]> {
+  const log = opts.log ?? ((m: string) => process.stderr.write(m + '\n'));
+  if (!secrets.githubToken) {
+    throw new Error('Missing GitHub token. Set GITHUB_TOKEN (a PAT or fine-grained token).');
+  }
+  const octokit = makeOctokit(secrets.githubToken);
+  const repos = config.repos.length ? config.repos : await listOrgRepos(octokit, config.org);
+  const all: MilestoneRecord[] = [];
+  for (const repo of repos) {
+    try {
+      all.push(...(await fetchMilestones(octokit, config.org, repo)));
+    } catch (err) {
+      log(`  ${repo}: WARN milestones ${(err as Error).message}`);
+    }
+  }
+  return all;
 }
 
 /** GitHub bot accounts have logins suffixed with `[bot]` (e.g. `dependabot[bot]`). */

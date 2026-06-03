@@ -372,6 +372,7 @@ export async function fetchIssues(
       title: issue.title,
       state: (issue.state === 'closed' ? 'closed' : 'open') as IssueActivity['state'],
       url: issue.html_url,
+      milestoneNumber: issue.milestone?.number, // for roadmap reconciliation (Phase 5)
     };
     if (openedInWindow) {
       out.push({ author, issue: { ...base, action: 'opened', at: issue.created_at } });
@@ -381,4 +382,44 @@ export async function fetchIssues(
     }
   }
   return out;
+}
+
+export interface MilestoneRecord {
+  repo: string;
+  number: number;
+  title: string;
+  url: string;
+  state: 'open' | 'closed';
+  /** Due date if set (ISO-8601). */
+  dueOn?: string;
+  openIssues: number;
+  closedIssues: number;
+}
+
+/**
+ * Fetch a repo's milestones (open + closed) for roadmap reconciliation (Phase 5).
+ * The milestone object carries open/closed issue counts and the due date, so
+ * progress and "on track vs due" come for free — no per-issue fetch needed.
+ */
+export async function fetchMilestones(
+  octokit: Octokit,
+  org: string,
+  repo: string,
+): Promise<MilestoneRecord[]> {
+  const list = await octokit.paginate(octokit.rest.issues.listMilestones, {
+    owner: org,
+    repo,
+    state: 'all',
+    per_page: 100,
+  });
+  return list.map((m) => ({
+    repo,
+    number: m.number,
+    title: m.title,
+    url: m.html_url,
+    state: m.state === 'closed' ? 'closed' : 'open',
+    dueOn: m.due_on ?? undefined,
+    openIssues: m.open_issues,
+    closedIssues: m.closed_issues,
+  }));
 }

@@ -9,8 +9,14 @@
  * summarize()'s `create` seam.
  */
 import type { Config, Secrets } from './config.js';
-import type { OrgActivity, Window } from './types.js';
-import { collect as collectImpl, type CollectOptions } from './collect.js';
+import type { MilestoneRecord } from './github.js';
+import type { OrgActivity, RoadmapStatus, Window } from './types.js';
+import {
+  collect as collectImpl,
+  collectRoadmap as collectRoadmapImpl,
+  type CollectOptions,
+} from './collect.js';
+import { reconcile as reconcileImpl, type ReconcileInput, type ReconcileOptions } from './reconcile.js';
 import { resolveLlm as resolveLlmImpl, PROVIDER_ENV, type ResolvedLlm } from './llm.js';
 
 export type StandupFormat = 'prose' | 'bullets';
@@ -26,6 +32,8 @@ export interface BuildStandupOptions {
   stats?: boolean;
   /** Force per-person stat lines. undefined = follow config + whether stats show. */
   statsPerPerson?: boolean;
+  /** Force the roadmap status block on/off. undefined = config.roadmap.enabled. */
+  roadmap?: boolean;
   /** Progress sink (defaults to no-op). */
   log?: (msg: string) => void;
   /** Injectable clock, threaded to collect() for deterministic windows/tests. */
@@ -37,6 +45,12 @@ export interface BuildStandupOptions {
 export interface BuildStandupDeps {
   collect?: (config: Config, secrets: Secrets, opts: CollectOptions) => Promise<OrgActivity>;
   resolveLlm?: (config: Config, secrets: Secrets) => ResolvedLlm | null;
+  collectRoadmap?: (
+    config: Config,
+    secrets: Secrets,
+    opts: { log?: (msg: string) => void },
+  ) => Promise<MilestoneRecord[]>;
+  reconcile?: (input: ReconcileInput, opts: ReconcileOptions) => RoadmapStatus;
 }
 
 export interface BuiltStandup {
@@ -70,6 +84,9 @@ export async function buildStandup(
   const log = opts.log ?? (() => {});
   const collect = opts.deps?.collect ?? collectImpl;
   const resolveLlm = opts.deps?.resolveLlm ?? resolveLlmImpl;
+  const collectRoadmap = opts.deps?.collectRoadmap ?? collectRoadmapImpl;
+  const reconcile = opts.deps?.reconcile ?? reconcileImpl;
+  const roadmapEnabled = opts.roadmap ?? config.roadmap.enabled;
 
   const activity = await collect(config, secrets, {
     windowHours: opts.windowHours,
@@ -92,12 +109,36 @@ export async function buildStandup(
   // deterministic render (also the failure fallback).
   const llm = opts.mechanical ? null : resolveLlm(config, secrets);
   if (llm) {
+    // Roadmap reconciliation (Phase 5) — only on the AI path, only when enabled.
+    // A fetch/reconcile failure is non-fatal: log and produce the standup without it.
+    let roadmap: RoadmapStatus | undefined;
+    if (roadmapEnabled) {
+      try {
+        const milestones = await collectRoadmap(config, secrets, { log });
+        roadmap = reconcile(
+          {
+            milestones,
+            issues: activity.people.flatMap((p) => p.issues),
+            window: activity.window,
+          },
+          {
+            milestoneFilter: config.roadmap.milestoneFilter,
+            atRiskDays: config.roadmap.atRiskDays,
+            now: opts.now ?? new Date(),
+          },
+        );
+        log(`standup: roadmap reconciled — ${roadmap.items.length} item(s) tracked.`);
+      } catch (err) {
+        log(`standup: roadmap reconcile failed (${(err as Error).message}); skipping status vs plan.`);
+      }
+    }
     try {
       const { summarize } = await import('./summarize.js');
       const standup = await summarize(activity, {
         create: llm.create,
         model: llm.model,
         format: opts.format ?? config.format,
+        roadmap,
         log,
       });
       log(`standup: summarized with ${llm.provider} (${llm.model}).`);

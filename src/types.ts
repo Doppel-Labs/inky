@@ -79,6 +79,8 @@ export interface IssueActivity {
   action: 'opened' | 'closed' | 'commented';
   url: string;
   at: string;
+  /** The milestone this issue belongs to, if any — for roadmap reconciliation (Phase 5). */
+  milestoneNumber?: number;
 }
 
 /**
@@ -190,6 +192,57 @@ export interface PersonStandup {
   totals?: PersonActivity['totals'];
 }
 
+// ── Phase 5: roadmap reconciliation (status vs plan) ──
+
+/** A roadmap item being tracked. MVP: a GitHub milestone. Later: project/epic/declared goal. */
+export interface RoadmapItem {
+  /** Stable id, e.g. "milestone:web#3". */
+  id: string;
+  kind: 'milestone';
+  title: string;
+  url: string;
+  repo: string;
+  /** Due date if set (ISO-8601). */
+  dueOn?: string;
+  /** Open / closed sub-issue counts (straight off the milestone — gives progress for free). */
+  openCount: number;
+  closedCount: number;
+  state: 'open' | 'closed';
+}
+
+/** How a tracked item moved this window. */
+export type ItemMovement =
+  | 'completed' // closed this window, or reached 100%
+  | 'advanced' // ≥1 sub-issue closed in-window
+  | 'in-progress' // in-window activity on its issues, but no closures
+  | 'stalled' // open, no in-window activity (flagged: past/near due or simply idle)
+  | 'untouched'; // open, no activity, not flagged
+
+/** A roadmap item after reconciling the window's activity against it. */
+export interface RoadmapItemStatus {
+  item: RoadmapItem;
+  movement: ItemMovement;
+  /** Sub-issues under this item closed in-window. */
+  closedThisWindow: number;
+  /** closedCount / (openCount + closedCount), 0..1. */
+  progress: number;
+  /** Due date set, work remaining, and due within atRiskDays or already past. */
+  atRisk: boolean;
+  /** Short mechanical reason (e.g. "due in 3 days · 4 open", "9 days overdue"). */
+  note?: string;
+}
+
+/**
+ * The reconciled roadmap picture for the window. Every figure here is mechanical
+ * (never model-counted) — the model only narrates from it, like the stats panel.
+ */
+export interface RoadmapStatus {
+  items: RoadmapItemStatus[];
+  /** In-window issue closures not tied to any tracked item. */
+  unplanned: { closedIssues: number };
+  totals: { tracked: number; completed: number; advanced: number; stalled: number; atRisk: number };
+}
+
 /** The full standup for a day. Output of summarize(), input to render(). */
 export interface Standup {
   org: string;
@@ -199,6 +252,8 @@ export interface Standup {
   people: PersonStandup[];
   /** Verified team-wide stats, carried for an optional stats panel. */
   teamTotals?: TeamStats;
-  /** Phase 5: status reconciled against a task tracker / roadmap. */
+  /** Phase 5: AI-written, grounded narrative of where the project stands vs the plan. */
   statusVsPlan?: string;
+  /** Phase 5: the mechanical roadmap reconciliation, rendered as a status panel. */
+  roadmap?: RoadmapStatus;
 }

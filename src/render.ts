@@ -13,10 +13,12 @@
  */
 import type {
   CommitActivity,
+  ItemMovement,
   OrgActivity,
   PersonActivity,
   PersonStandup,
   PullRequestActivity,
+  RoadmapStatus,
   Standup,
   TeamStats,
 } from './types.js';
@@ -247,12 +249,43 @@ function personTotalsLine(t: NonNullable<PersonStandup['totals']>): string {
   return parts.join(' · ');
 }
 
+/** Movement → a short, scannable label for the roadmap panel. */
+const MOVEMENT_LABEL: Record<ItemMovement, string> = {
+  completed: '✅ completed',
+  advanced: '📈 advanced',
+  'in-progress': '🔧 in progress',
+  stalled: '🛑 stalled',
+  untouched: '• no movement',
+};
+
+/** Mechanical roadmap status lines (per tracked item), beneath the AI narrative. */
+function roadmapPanel(roadmap: RoadmapStatus): string[] {
+  const lines: string[] = [];
+  for (const it of roadmap.items) {
+    const total = it.item.openCount + it.item.closedCount;
+    const pct = Math.round(it.progress * 100);
+    const label =
+      it.movement === 'advanced' && it.closedThisWindow
+        ? `📈 advanced (+${it.closedThisWindow} this period)`
+        : MOVEMENT_LABEL[it.movement];
+    const bits = [label];
+    if (it.atRisk) bits.push(`⚠️ ${it.note ?? 'at risk'}`);
+    lines.push(`- **${it.item.title}** — ${it.item.closedCount}/${total} (${pct}%) · ${bits.join(' · ')}`);
+  }
+  if (roadmap.unplanned.closedIssues) {
+    const n = roadmap.unplanned.closedIssues;
+    lines.push(`- _${n} issue${n === 1 ? '' : 's'} closed outside any tracked milestone_`);
+  }
+  return lines;
+}
+
 /**
  * Render an AI-written Standup (output of summarize()) as Discord-flavored
  * markdown. Same shell as renderMechanical — title, span, footer — but the body
  * is the model's prose instead of mechanical bullet lines. Highlights, if any,
  * follow each narrative as bullets (they already carry their own refs). An
- * optional team stats panel and per-person stat lines are gated by opts.
+ * optional team stats panel, a roadmap status block, and per-person stat lines
+ * are gated by opts / by the data's presence.
  */
 export function renderStandup(standup: Standup, opts: RenderOptions = {}): string {
   const { org, window, projectSummary, people, statusVsPlan } = standup;
@@ -273,6 +306,18 @@ export function renderStandup(standup: Standup, opts: RenderOptions = {}): strin
 
   if (projectSummary) {
     out.push(projectSummary);
+    out.push('');
+  }
+
+  // Status vs plan (Phase 5): the grounded narrative + the mechanical milestone
+  // panel. Present only when roadmap reconciliation ran and tracked something.
+  if (standup.roadmap && standup.roadmap.items.length) {
+    out.push('## 📍 Status vs plan');
+    if (statusVsPlan) {
+      out.push(statusVsPlan);
+      out.push('');
+    }
+    for (const line of roadmapPanel(standup.roadmap)) out.push(line);
     out.push('');
   }
 
@@ -298,12 +343,6 @@ export function renderStandup(standup: Standup, opts: RenderOptions = {}): strin
       if (multiRepo) out.push(`**${group.repo}**`);
       for (const pt of group.points) out.push(`- ${pt}`);
     }
-    out.push('');
-  }
-
-  if (statusVsPlan) {
-    out.push('### Status vs. plan');
-    out.push(statusVsPlan);
     out.push('');
   }
 
