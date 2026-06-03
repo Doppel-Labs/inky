@@ -38,17 +38,22 @@ In `inky.config.json`:
 ```jsonc
 {
   "org": "your-org",
-  "windowHours": 24,            // keep this in step with the cadence (see below)
   "schedule": {
-    "cron": "0 9 * * 1-5",      // 9:00am, Mon–Fri (standard 5-field cron)
-    "timezone": "America/New_York"   // IANA name; DST-aware
+    "timezone": "America/New_York",     // IANA name; DST-aware
+    "jobs": [
+      { "cron": "0 9 * * 1-5", "windowHours": 24,  "label": "daily"  }, // 9am weekdays, past day
+      { "cron": "0 9 * * 1",   "windowHours": 168, "label": "weekly" }  // 9am Monday, past week
+    ]
   }
 }
 ```
 
-**Match `windowHours` to your cadence** so the window doesn't overlap or leave
-gaps: `24` for a daily post, `168` for a weekly one. Defaults: `0 9 * * *` (9am
-every day) in `UTC`, 24h window.
+`schedule.jobs` is **one or more** posts — each with its own `cron` (standard
+5-field) and `windowHours` (the window that post covers). That's how you run a
+daily standup **and** a weekly one from a single worker. A job's `windowHours`
+falls back to the top-level `windowHours` if omitted. To stagger same-day jobs
+(e.g. a Monday weekly + the Monday daily) so they don't post at the same minute,
+give them different times.
 
 ## 2. Set secrets (environment only — never in config)
 

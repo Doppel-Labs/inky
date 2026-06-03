@@ -13,8 +13,11 @@
     "guildId": ""
   },
   "schedule": {
-    "cron": "0 9 * * 1-5",
-    "timezone": "UTC"
+    "timezone": "UTC",
+    "jobs": [
+      { "cron": "0 9 * * 1-5", "windowHours": 24, "label": "daily" },
+      { "cron": "0 9 * * 1", "windowHours": 168, "label": "weekly" }
+    ]
   },
   "provider": "anthropic",
   "model": "claude-sonnet-4-6",

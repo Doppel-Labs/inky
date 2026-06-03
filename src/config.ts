@@ -10,6 +10,17 @@ import { z } from 'zod';
 export const AliasMapSchema = z.record(z.string(), z.array(z.string()));
 export type AliasMap = z.infer<typeof AliasMapSchema>;
 
+/** One scheduled post: a cron expression + the window it should cover. */
+export const ScheduleJobSchema = z.object({
+  /** Standard 5-field cron expression (in the schedule's timezone). */
+  cron: z.string(),
+  /** Window length in hours for this post. Omit to use the top-level windowHours. */
+  windowHours: z.number().int().positive().optional(),
+  /** Optional label for logs, e.g. "daily" / "weekly". */
+  label: z.string().optional(),
+});
+export type ScheduleJob = z.infer<typeof ScheduleJobSchema>;
+
 export const ConfigSchema = z.object({
   /** GitHub org/owner to read activity from. */
   org: z.string().min(1),
@@ -52,15 +63,20 @@ export const ConfigSchema = z.object({
     })
     .default({}),
   /**
-   * When the long-running worker (`inky serve`) posts the standup. `cron` is a
-   * standard 5-field expression; `timezone` is an IANA name (DST-aware). Keep
-   * windowHours in step with the cadence — 24 for a daily 9am post, 168 for a
-   * weekly one. Default: 9am every day, UTC. (Weekdays only: "0 9 * * 1-5".)
+   * When the long-running worker (`inky serve`) posts. `jobs` is one or more
+   * scheduled posts, each with its own `cron` (standard 5-field) and optional
+   * `windowHours` (defaults to the top-level windowHours). This is how you run,
+   * say, a daily standup AND a weekly one. `timezone` is a shared IANA name
+   * (DST-aware). Example: daily weekday + weekly Monday:
+   *   "jobs": [
+   *     { "cron": "0 9 * * 1-5", "windowHours": 24,  "label": "daily" },
+   *     { "cron": "0 9 * * 1",   "windowHours": 168, "label": "weekly" }
+   *   ]
    */
   schedule: z
     .object({
-      cron: z.string().default('0 9 * * *'),
       timezone: z.string().default('UTC'),
+      jobs: z.array(ScheduleJobSchema).default([{ cron: '0 9 * * *', label: 'standup' }]),
     })
     .default({}),
   /**

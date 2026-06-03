@@ -1,18 +1,20 @@
 /**
  * The long-running worker — Inky's "runs on its own" trigger layer.
  *
- * A single in-process scheduler (croner) fires the standup on config.schedule.
- * Each tick is wrapped so a failed run (GitHub hiccup, LLM error, Discord 5xx)
- * is logged and the worker keeps going — a daemon must never die on one bad day.
- * croner's `protect` guards against overlap if a run outlasts the interval.
+ * One in-process scheduler (croner) per configured job fires the standup on its
+ * cron, each with its own window — so you can run, e.g., a daily standup AND a
+ * weekly one from a single process. Each tick is wrapped so a failed run (GitHub
+ * hiccup, LLM error, Discord 5xx) is logged and the worker keeps going — a daemon
+ * must never die on one bad day. croner's `protect` guards against overlap if a
+ * run outlasts its interval.
  *
  * This is a thin adapter over buildStandup() + the Discord delivery, kept
- * host-agnostic: deploy it to any always-on host (Railway/Fly/Render/a box).
- * The scheduler and the cycle body are injectable so the wiring is unit-tested
+ * host-agnostic: deploy it to any always-on host (Render/Railway/Fly/a box). The
+ * scheduler and the cycle body are injectable so the wiring is unit-tested
  * without real timers or network.
  */
 import { Cron } from 'croner';
-import type { Config, Secrets } from './config.js';
+import type { Config, ScheduleJob, Secrets } from './config.js';
 import { resolveWebhookUrl } from './config.js';
 import { buildStandup } from './standup.js';
 import { postStandupToDiscord } from './discord.js';
@@ -40,27 +42,28 @@ const cronScheduler: SchedulerFactory = (pattern, options, onTick) =>
 export interface WorkerOptions {
   /** Progress sink (defaults to stderr). */
   log?: (msg: string) => void;
-  /** Run one cycle immediately and resolve, without scheduling. */
+  /** Run every configured job once immediately and resolve, without scheduling. */
   once?: boolean;
-  /** Build the standup but print it instead of posting (no webhook required). */
+  /** Build each standup but print it instead of posting (no webhook required). */
   dryRun?: boolean;
   /** Injectable scheduler (defaults to croner). */
   scheduler?: SchedulerFactory;
-  /** Injectable cycle body (defaults to the real build + deliver). */
-  runCycle?: () => Promise<void>;
+  /** Injectable per-job cycle body (defaults to the real build + deliver). */
+  runJob?: (job: ScheduleJob) => Promise<void>;
 }
 
 export interface WorkerHandle {
-  /** Stop scheduling further runs. */
+  /** Stop scheduling further runs (all jobs). */
   stop: () => void;
-  /** The job's next scheduled run (null in --once mode). */
+  /** The soonest next run across all jobs (null in --once mode). */
   nextRun: () => Date | null;
 }
 
 /**
- * Start the worker. In --once mode it runs a single cycle and resolves; otherwise
- * it schedules and returns a handle (the caller keeps the process alive and wires
- * signals). The returned promise resolving does NOT mean the worker stopped.
+ * Start the worker. In --once mode it runs each configured job once and resolves;
+ * otherwise it schedules every job and returns a handle (the caller keeps the
+ * process alive and wires signals). The returned promise resolving does NOT mean
+ * the worker stopped.
  */
 export async function startWorker(
   config: Config,
@@ -71,52 +74,72 @@ export async function startWorker(
   const webhookUrl = resolveWebhookUrl(config, secrets);
 
   // A scheduled worker that posts needs somewhere to post. Fail fast and loud
-  // rather than silently running daily into the void. (--dry-run is exempt.)
-  if (!opts.dryRun && !webhookUrl && !opts.runCycle) {
+  // rather than silently running into the void. (--dry-run is exempt.)
+  if (!opts.dryRun && !webhookUrl && !opts.runJob) {
     throw new Error(
       'inky serve: no Discord webhook configured. Set DISCORD_WEBHOOK_URL (or discord.webhookUrl in config), or pass --dry-run to print instead.',
     );
   }
 
-  const runCycle =
-    opts.runCycle ??
-    (async () => {
-      log('inky: running scheduled standup…');
-      const built = await buildStandup(config, secrets, { log });
+  const runJob =
+    opts.runJob ??
+    (async (job: ScheduleJob) => {
+      const tag = job.label ? ` (${job.label})` : '';
+      log(`inky: running scheduled standup${tag}…`);
+      const built = await buildStandup(config, secrets, { windowHours: job.windowHours, log });
       if (opts.dryRun || !webhookUrl) {
-        log('inky: dry run — printing standup instead of posting.');
+        log(`inky: dry run${tag} — printing standup instead of posting.`);
         process.stdout.write(built.markdown + '\n');
         return;
       }
       const { messages, embeds } = await postStandupToDiscord(webhookUrl, built.markdown);
-      log(`inky: posted ${embeds} embed(s) in ${messages} message(s) to Discord.`);
+      log(`inky: posted ${embeds} embed(s) in ${messages} message(s)${tag}.`);
     });
 
-  // One scheduled tick: never throws — a bad run is logged, the worker lives on.
-  let job: ScheduledJob | null = null;
-  const tick = async () => {
-    try {
-      await runCycle();
-    } catch (err) {
-      log(`inky: scheduled run failed: ${(err as Error).message}`);
-    } finally {
-      const next = job?.nextRun() ?? null;
-      if (next) log(`inky: next run ${next.toISOString()}.`);
-    }
-  };
+  const jobs = config.schedule.jobs;
 
   if (opts.once) {
-    await tick();
+    // Run each configured job once (handy to preview daily + weekly together).
+    for (const job of jobs) {
+      try {
+        await runJob(job);
+      } catch (err) {
+        log(`inky: run failed: ${(err as Error).message}`);
+      }
+    }
     return { stop: () => {}, nextRun: () => null };
   }
 
   const scheduler = opts.scheduler ?? cronScheduler;
-  job = scheduler(config.schedule.cron, { timezone: config.schedule.timezone }, tick);
-  const next = job.nextRun();
-  log(
-    `inky: worker started — schedule "${config.schedule.cron}" (${config.schedule.timezone}). ` +
-      `Next run: ${next ? next.toISOString() : 'n/a'}.`,
-  );
+  const cronJobs: ScheduledJob[] = [];
 
-  return { stop: () => job?.stop(), nextRun: () => job?.nextRun() ?? null };
+  jobs.forEach((job, i) => {
+    // One scheduled tick: never throws — a bad run is logged, the worker lives on.
+    const tick = async () => {
+      try {
+        await runJob(job);
+      } catch (err) {
+        const tag = job.label ? ` (${job.label})` : '';
+        log(`inky: scheduled run${tag} failed: ${(err as Error).message}`);
+      } finally {
+        const next = cronJobs[i]?.nextRun() ?? null;
+        if (next) log(`inky: next ${job.label ?? 'run'} ${next.toISOString()}.`);
+      }
+    };
+    const cj = scheduler(job.cron, { timezone: config.schedule.timezone }, tick);
+    cronJobs.push(cj);
+    const next = cj.nextRun();
+    log(
+      `inky: scheduled ${job.label ?? 'standup'} "${job.cron}" (${config.schedule.timezone}) — ` +
+        `next run ${next ? next.toISOString() : 'n/a'}.`,
+    );
+  });
+
+  return {
+    stop: () => cronJobs.forEach((j) => j.stop()),
+    nextRun: () => {
+      const times = cronJobs.map((j) => j.nextRun()).filter((d): d is Date => d != null);
+      return times.length ? times.reduce((a, b) => (a < b ? a : b)) : null;
+    },
+  };
 }

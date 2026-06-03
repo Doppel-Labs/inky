@@ -162,17 +162,25 @@ activity merges correctly:
 
 `inky serve` makes the standup post on its own — an in-process scheduler
 (no external cron) runs the full pipeline on `config.schedule` and posts to
-Discord:
+Discord. `schedule.jobs` is **one or more** scheduled posts, each with its own
+`cron` and `windowHours`, so you can run a daily standup **and** a weekly one
+from a single worker:
 
 ```jsonc
-"schedule": { "cron": "0 9 * * 1-5", "timezone": "America/New_York" }
+"schedule": {
+  "timezone": "America/New_York",
+  "jobs": [
+    { "cron": "0 9 * * 1-5", "windowHours": 24,  "label": "daily"  }, // 9am weekdays, past day
+    { "cron": "0 9 * * 1",   "windowHours": 168, "label": "weekly" }  // 9am Monday, past week
+  ]
+}
 ```
 
-Keep `windowHours` in step with the cadence (24 for daily, 168 for weekly). A
+`windowHours` per job defaults to the top-level `windowHours` if omitted. A
 failed run is logged and the worker keeps going; run a single instance so the
-channel isn't posted to twice. Deploy it to any always-on host (Railway, Fly.io,
-Render, Docker) — see [`docs/deployment.md`](docs/deployment.md) for step-by-step
-guides, the `Dockerfile`, and the required secrets.
+channel isn't posted to twice. Deploy it to any always-on host (Render, Railway,
+Fly.io, Docker) — see [`docs/deployment.md`](docs/deployment.md) for step-by-step
+guides (incl. a `render.yaml`) and the required secrets.
 
 ### On-demand: the `/standup` slash command
 

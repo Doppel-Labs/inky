@@ -13,63 +13,66 @@ const secretsWithHook: Secrets = {
   discordWebhookUrl: 'https://discord.com/api/webhooks/1/abc',
 };
 
-/** A scheduler that records what it was handed and returns a controllable job. */
-function captureScheduler(job: ScheduledJob): {
-  factory: SchedulerFactory;
-  captured: { pattern?: string; timezone?: string; onTick?: () => void | Promise<void> };
-} {
-  const captured: { pattern?: string; timezone?: string; onTick?: () => void | Promise<void> } = {};
+/** A scheduler that records each (pattern, timezone, onTick) and returns a controllable job. */
+function captureScheduler(makeJob: () => ScheduledJob = () => ({ nextRun: () => null, stop: () => {} })) {
+  const captured: { pattern: string; timezone: string; onTick: () => void | Promise<void> }[] = [];
   const factory: SchedulerFactory = (pattern, options, onTick) => {
-    captured.pattern = pattern;
-    captured.timezone = options.timezone;
-    captured.onTick = onTick;
-    return job;
+    captured.push({ pattern, timezone: options.timezone, onTick });
+    return makeJob();
   };
   return { factory, captured };
 }
 
-test('startWorker --once runs a single cycle and does not schedule', async () => {
-  let runs = 0;
-  const handle = await startWorker(cfg(), secrets, {
+const dailyWeekly = {
+  timezone: 'America/New_York',
+  jobs: [
+    { cron: '0 9 * * 1-5', windowHours: 24, label: 'daily' },
+    { cron: '0 9 * * 1', windowHours: 168, label: 'weekly' },
+  ],
+};
+
+test('startWorker --once runs each configured job once', async () => {
+  const ran: (string | undefined)[] = [];
+  const handle = await startWorker(cfg({ schedule: dailyWeekly }), secrets, {
     once: true,
-    runCycle: async () => {
-      runs++;
-    },
+    runJob: async (job) => void ran.push(job.label),
     log: () => {},
   });
-  assert.equal(runs, 1);
+  assert.deepEqual(ran, ['daily', 'weekly']);
   assert.equal(handle.nextRun(), null);
 });
 
-test('startWorker passes the cron pattern + timezone to the scheduler and exposes nextRun', async () => {
-  const next = new Date('2026-06-02T09:00:00.000Z');
-  const { factory, captured } = captureScheduler({ nextRun: () => next, stop: () => {} });
-  let runs = 0;
-  const handle = await startWorker(
-    cfg({ schedule: { cron: '0 9 * * 1-5', timezone: 'America/New_York' } }),
-    secretsWithHook,
-    { scheduler: factory, runCycle: async () => void runs++, log: () => {} },
-  );
-  assert.equal(captured.pattern, '0 9 * * 1-5');
-  assert.equal(captured.timezone, 'America/New_York');
+test('startWorker schedules one cron job per configured job, with the shared timezone', async () => {
+  const next = new Date('2026-06-04T13:00:00.000Z');
+  const { factory, captured } = captureScheduler(() => ({ nextRun: () => next, stop: () => {} }));
+  const ran: (string | undefined)[] = [];
+  const handle = await startWorker(cfg({ schedule: dailyWeekly }), secretsWithHook, {
+    scheduler: factory,
+    runJob: async (job) => void ran.push(job.label),
+    log: () => {},
+  });
+  assert.equal(captured.length, 2);
+  assert.equal(captured[0]!.pattern, '0 9 * * 1-5');
+  assert.equal(captured[1]!.pattern, '0 9 * * 1');
+  assert.equal(captured[0]!.timezone, 'America/New_York');
   assert.equal(handle.nextRun()?.toISOString(), next.toISOString());
 
-  await captured.onTick?.(); // simulate the scheduler firing
-  assert.equal(runs, 1);
+  await captured[1]!.onTick(); // fire the weekly job's tick
+  assert.deepEqual(ran, ['weekly']);
 });
 
 test('startWorker swallows a failing cycle — the worker stays alive', async () => {
   const logs: string[] = [];
-  const { factory, captured } = captureScheduler({ nextRun: () => null, stop: () => {} });
+  const { factory, captured } = captureScheduler();
   await startWorker(cfg(), secretsWithHook, {
     scheduler: factory,
-    runCycle: async () => {
+    runJob: async () => {
       throw new Error('kaboom');
     },
     log: (m) => logs.push(m),
   });
-  await assert.doesNotReject(() => Promise.resolve(captured.onTick?.()));
-  assert.ok(logs.some((l) => /scheduled run failed: kaboom/.test(l)));
+  await assert.doesNotReject(() => Promise.resolve(captured[0]!.onTick()));
+  assert.ok(logs.some((l) => /failed: kaboom/.test(l)));
 });
 
 test('startWorker rejects when no webhook is configured (and not a dry run)', async () => {
@@ -80,16 +83,20 @@ test('startWorker rejects when no webhook is configured (and not a dry run)', as
 });
 
 test('startWorker --dry-run does not require a webhook', async () => {
-  const { factory } = captureScheduler({ nextRun: () => null, stop: () => {} });
+  const { factory } = captureScheduler();
   await assert.doesNotReject(() =>
     startWorker(cfg(), secrets, { dryRun: true, scheduler: factory, log: () => {} }),
   );
 });
 
-test('handle.stop() stops the scheduled job', async () => {
-  let stopped = false;
-  const { factory } = captureScheduler({ nextRun: () => null, stop: () => (stopped = true) });
-  const handle = await startWorker(cfg(), secretsWithHook, { scheduler: factory, log: () => {} });
+test('handle.stop() stops every scheduled job', async () => {
+  let stopped = 0;
+  const { factory } = captureScheduler(() => ({ nextRun: () => null, stop: () => void stopped++ }));
+  const handle = await startWorker(cfg({ schedule: dailyWeekly }), secretsWithHook, {
+    scheduler: factory,
+    runJob: async () => {},
+    log: () => {},
+  });
   handle.stop();
-  assert.equal(stopped, true);
+  assert.equal(stopped, 2);
 });
