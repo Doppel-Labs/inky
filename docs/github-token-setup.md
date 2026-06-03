@@ -33,8 +33,10 @@ read-only permissions — far safer than a classic token.
 4. **Resource owner:** select your **organization** (not your personal account).
    - If the org requires approval for fine-grained tokens, an org owner must
      approve it under Org Settings → Personal access tokens.
-5. **Repository access:** **Only select repositories** (pick the repos you want
-   in the standup) — or **All repositories** if you want the whole org.
+5. **Repository access:** **All repositories** if you want the whole org (this is
+   required when `repos: []` in your config, so Inky can list + read every repo) —
+   or **Only select repositories** to limit the standup to specific repos (match
+   them to `repos: [...]` in your config).
 6. **Repository permissions** — set these to **Read-only**, leave everything else
    *No access*:
 
