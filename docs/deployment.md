@@ -113,13 +113,27 @@ excluded via `.dockerignore`; the runtime stage ships only production deps.)
 3. Bake `inky.config.json` into the image (fork) or attach a volume.
 4. `fly deploy`; scale to one machine: `fly scale count 1`.
 
-### Render
+### Render (recommended — there's a committed `render.yaml`)
 
-1. New **Background Worker** from your repo (not a Web Service — there's no HTTP
-   port). Build: `pnpm install && pnpm build`. Start: `node dist/cli.js serve`.
-2. Add the secrets as **Environment** variables.
-3. Provide `inky.config.json` via the repo (fork) or a Secret File mounted at
-   `/app/inky.config.json`.
+The repo ships a [`render.yaml`](../render.yaml) Blueprint that defines a
+**Background Worker** (no HTTP port — the right type for `inky serve`, which
+connects out over Discord's gateway).
+
+1. Render dashboard → **New → Blueprint** → pick this repo. It reads `render.yaml`
+   and creates the `inky` worker (build `pnpm install && pnpm build`, start
+   `node dist/cli.js serve --config /etc/secrets/inky.config.json`).
+2. **Secret File:** on the service, add a Secret File named **`inky.config.json`**
+   with your config (org, repos, aliases, schedule, provider/model). Render mounts
+   it at `/etc/secrets/inky.config.json`, which the start command points at. (Your
+   config isn't a secret per se, but this keeps it off the public repo.)
+3. **Environment:** set `GITHUB_TOKEN`, one LLM key (`ANTHROPIC_API_KEY` /
+   `GROQ_API_KEY` / `OPENAI_API_KEY`), `DISCORD_WEBHOOK_URL`, and
+   `DISCORD_BOT_TOKEN` only if you want the `/standup` command.
+4. Deploy. The logs should show `worker started — … Next run: …`. Keep the
+   instance count at **1**.
+
+> Background Workers are a paid Render instance type (no free tier). The Blueprint
+> defaults to the `starter` plan — change it in `render.yaml` or the dashboard.
 
 ## Troubleshooting
 

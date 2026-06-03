@@ -1,0 +1,29 @@
+# Render Blueprint — runs Inky's worker: scheduled standups + the /standup bot.
+# A Background Worker (no HTTP port) fits `inky serve`, which connects out over
+# Discord's gateway rather than receiving webhooks.
+#
+# After "New > Blueprint" from this repo, in the Render dashboard:
+#   1. Add a Secret File named  inky.config.json  with your config (org, repos,
+#      aliases, schedule, provider/model). It mounts at /etc/secrets/inky.config.json,
+#      which the start command below points at.
+#   2. Fill in the env vars (GITHUB_TOKEN, one LLM key, DISCORD_WEBHOOK_URL, and
+#      DISCORD_BOT_TOKEN only if you want the /standup command).
+#
+# Run a SINGLE instance — each worker posts on the schedule, so two would double-post.
+services:
+  - type: worker
+    name: inky
+    runtime: node
+    plan: starter # background workers need a paid instance; size up if needed
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
+    startCommand: node dist/cli.js serve --config /etc/secrets/inky.config.json
+    autoDeploy: true
+    envVars:
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: ANTHROPIC_API_KEY # or GROQ_API_KEY / OPENAI_API_KEY, matching config.provider
+        sync: false
+      - key: DISCORD_WEBHOOK_URL
+        sync: false
+      - key: DISCORD_BOT_TOKEN # optional — only for the /standup slash command
+        sync: false

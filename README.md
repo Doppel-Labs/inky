@@ -59,6 +59,34 @@ for a secure, least-privilege (read-only) setup.
 > Use `pnpm --silent` so only the JSON reaches stdout (without it, pnpm prints a
 > script banner). The installed `inky` binary needs no such flag.
 
+## Commands
+
+Run **`inky help`** for the full reference. There are four commands:
+
+| Command | What it does |
+|---|---|
+| `inky collect` | Fetch + normalize org activity, print as JSON (debugging). |
+| `inky standup` | Build the standup once and post it (or print with `--dry-run`). |
+| `inky serve` | Run forever: scheduled posts **+** the `/standup` bot. |
+| `inky register-commands` | Register the `/standup` slash command (run once). |
+
+- **Window** (default = config `windowHours`, ending now): `--days N` · `--hours N` · `--since <ISO>` · `--until <ISO>`. Pair `--since`/`--until` for an exact past window, e.g. `--since 2026-06-01 --until 2026-06-02`.
+- **Report**: `--stats` / `--no-stats` · `--stats-per-person` · `--roadmap` / `--no-roadmap` · `--format prose|bullets` · `--mechanical` (skip the AI).
+- **Other**: `--config <path>` · `--provider <p>` · `--model <id>` · `--dry-run` · `--once` (serve: one cycle then exit).
+
+### Common recipes
+
+```bash
+inky standup --dry-run                              # preview today (nothing posted)
+inky standup --days 1                               # post a daily standup
+inky standup --days 7 --stats                       # weekly, with the team stats panel
+inky standup --since 2026-06-01 --until 2026-06-02  # replay an exact past window
+inky serve                                          # run on a schedule, forever
+inky serve --once --dry-run                         # test one scheduled cycle, printed
+```
+
+(In dev, swap `inky` for `pnpm --silent dev` — e.g. `pnpm --silent dev standup --dry-run`.)
+
 ## Configuration
 
 - **`inky.config.json`** — non-secret config: org, repos, window, identity

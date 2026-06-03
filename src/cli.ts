@@ -21,39 +21,66 @@ const FORMATS = ['prose', 'bullets'] as const;
 type Format = (typeof FORMATS)[number];
 type Command = (typeof COMMANDS)[number];
 
-function usage(): never {
-  console.error(`inky — your team's daily standup, written for you
+const HELP = `inky 🐙 — your team's daily standup, written for you
+
+Reads your org's GitHub activity (commits across all branches, PRs, reviews,
+issues) and writes the standup automatically — no human input.
 
 Usage:
   inky collect [opts]              Fetch and normalize org activity (prints JSON)
   inky standup [opts] [--dry-run]  Build and deliver the standup once
   inky serve [opts] [--once]       Scheduled posts + the /standup bot, forever
   inky register-commands [opts]    Register the /standup slash command
+  inky help                        Show this help
 
-Options:
-  --config <path>   Config file (default: inky.config.json)
-  --days <n>        Window length in days (overrides config windowHours)
-  --hours <n>       Window length in hours (overrides config windowHours)
-  --since <date>    Window start (ISO, e.g. 2026-06-01). With --until = exact range
-  --until <date>    Window end (ISO; default: now). Lets you replay a past window
-  --provider <p>    LLM provider: anthropic | groq | openai (overrides config)
-  --model <id>      LLM model id (overrides config model / provider default)
-  --stats           Force the team stats panel on (default: auto on weekly+)
-  --no-stats        Force the team stats panel off
+Window (default: config windowHours, ending now):
+  --days <n>          Window length in days
+  --hours <n>         Window length in hours
+  --since <date>      Window start (ISO, e.g. 2026-06-01). With --until = exact range
+  --until <date>      Window end (ISO; default: now). Replays a past window
+
+Report:
+  --stats             Force the team stats panel on (default: auto on weekly+)
+  --no-stats          Force the team stats panel off
   --stats-per-person  Add a per-person stat line under each name
-  --roadmap         Add the status-vs-plan block (from GitHub milestones)
-  --no-roadmap      Omit the status-vs-plan block
-  --format <style>  Per-person style: prose (default) | bullets
-  --dry-run         Print the standup to stdout instead of posting to Discord
-  --once            (serve) Run one scheduled-post cycle now and exit (no bot)
-  --mechanical      Skip the AI summary; use the deterministic renderer
+  --roadmap           Add the status-vs-plan block (from GitHub milestones)
+  --no-roadmap        Omit the status-vs-plan block
+  --format <style>    Per-person style: prose (default) | bullets
+  --mechanical        Skip the AI summary; use the deterministic renderer
+
+Other:
+  --config <path>     Config file (default: inky.config.json)
+  --provider <p>      LLM provider: anthropic | groq | openai (overrides config)
+  --model <id>        LLM model id (overrides config model / provider default)
+  --dry-run           Print the standup instead of posting to Discord
+  --once              (serve) Run one scheduled-post cycle now and exit (no bot)
+
+Examples:
+  inky standup --dry-run                  Preview today's standup (nothing posted)
+  inky standup --days 1                   Post a daily standup to Discord
+  inky standup --days 7 --stats           Post a weekly with the team stats panel
+  inky standup --since 2026-06-01 --until 2026-06-02   Replay an exact past window
+  inky serve                              Run the scheduler (+ bot) on its own, forever
+  inky serve --once --dry-run             Test one scheduled cycle, printed not posted
+  inky register-commands                  Register the /standup slash command (once)
 
 Environment:
   GITHUB_TOKEN         GitHub PAT / fine-grained token (repo read)
   ANTHROPIC_API_KEY    Anthropic key (or GROQ_API_KEY / OPENAI_API_KEY)
   DISCORD_WEBHOOK_URL  Discord incoming webhook (scheduled posts; preferred over config)
   DISCORD_BOT_TOKEN    Discord bot token (the /standup slash command)
-`);
+
+Docs: https://github.com/Doppel-Labs/inky`;
+
+/** Print help to stdout and exit 0 — for `help` / --help / -h / no args. */
+function printHelp(): never {
+  console.log(HELP);
+  process.exit(0);
+}
+
+/** Print help to stderr and exit non-zero — for usage errors. */
+function usage(): never {
+  console.error(HELP);
   process.exit(2);
 }
 
@@ -83,6 +110,10 @@ function parsePositiveNumber(raw: string | undefined): number {
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
+  // Help: `inky`, `inky help`, `--help`, `-h` all print help to stdout and exit 0.
+  if (argv.length === 0 || argv[0] === 'help' || argv.includes('--help') || argv.includes('-h')) {
+    printHelp();
+  }
   const [command, ...rest] = argv;
   if (!command || !COMMANDS.includes(command as Command)) usage();
   let configPath = 'inky.config.json';
