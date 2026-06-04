@@ -1,7 +1,7 @@
-# Rebuilt inside the image
-node_modules
-dist
-*.tsbuildinfo
+# Rebuilt inside the image (any package in the workspace)
+**/node_modules
+**/dist
+**/*.tsbuildinfo
 
 # Local secrets / scratch — must never enter the build context
 .env

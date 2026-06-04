@@ -1,1 +1,1 @@
-worker: node dist/cli.js serve
+worker: node packages/core/dist/cli.js serve

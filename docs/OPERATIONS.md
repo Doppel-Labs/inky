@@ -36,7 +36,7 @@ On a host, supply it as a mounted/secret file and point the worker at it with
 
 ## Deploy / redeploy
 - **Render** (uses `render.yaml`): push to `main` (auto-deploy) or **Manual Deploy**.
-- **Any host:** `pnpm build`, then `node dist/cli.js serve --config <path>`.
+- **Any host:** `pnpm build`, then `node packages/core/dist/cli.js serve --config <path>`.
 - **Run a single instance** — each one posts on the schedule, so two would double-post.
 
 ## Change the schedule, repos, or settings
@@ -69,7 +69,7 @@ Regenerate it (GitHub / Discord / Anthropic) → update the env var on your host
 changes. (A fine-grained GitHub PAT also auto-expires — renew before it lapses.)
 
 ## Test a post right now
-- **Hosted (Render Shell):** `node dist/cli.js serve --once --config /etc/secrets/inky.config.json`
+- **Hosted (Render Shell):** `node packages/core/dist/cli.js serve --once --config /etc/secrets/inky.config.json`
 - **Local:** `GITHUB_TOKEN=$(gh auth token) pnpm dev standup --days 1`
 
 Add `--dry-run` to print instead of posting.

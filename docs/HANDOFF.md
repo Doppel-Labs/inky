@@ -37,7 +37,7 @@ Host-agnostic core pipeline, thin trigger/delivery adapters:
 ```
 trigger (cron worker | /standup) → collect() → [reconcile()] → summarize() → render() → delivery (webhook | bot)
 ```
-Key `src/` files: `collect.ts`, `github.ts`, `summarize.ts` (one LLM call over a
+Key `packages/core/src/` files: `collect.ts`, `github.ts`, `summarize.ts` (one LLM call over a
 factual digest; model is *forced* to call an `emit_standup` tool → grounded,
 structured), `render.ts`, `reconcile.ts` (status-vs-roadmap from GitHub milestones),
 `standup.ts` (`buildStandup()` seam shared by CLI + worker), `worker.ts` (croner;

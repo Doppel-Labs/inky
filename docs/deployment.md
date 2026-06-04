@@ -89,7 +89,7 @@ GITHUB_TOKEN=$(gh auth token) DISCORD_WEBHOOK_URL=https://discord.com/api/webhoo
 ## 4. Deploy
 
 The worker is a plain Node process; any always-on host works. Build first
-(`pnpm build` → `dist/`), then run `node dist/cli.js serve`. Provide
+(`pnpm build` → `packages/core/dist/`), then run `node packages/core/dist/cli.js serve`. Provide
 `inky.config.json` (commit it to your private fork, or mount it) and set the
 secrets above as the platform's env vars / secrets.
 
@@ -116,7 +116,7 @@ excluded via `.dockerignore`; the runtime stage ships only production deps.)
 
 ### Fly.io
 
-1. `fly launch --no-deploy` (it'll use the `Dockerfile`); set `[processes] app = "node dist/cli.js serve"` or keep the image CMD.
+1. `fly launch --no-deploy` (it'll use the `Dockerfile`); set `[processes] app = "node packages/core/dist/cli.js serve"` or keep the image CMD.
 2. `fly secrets set GITHUB_TOKEN=… DISCORD_WEBHOOK_URL=… ANTHROPIC_API_KEY=…`
 3. Bake `inky.config.json` into the image (fork) or attach a volume.
 4. `fly deploy`; scale to one machine: `fly scale count 1`.
@@ -131,7 +131,7 @@ connects out over Discord's gateway).
    and creates the `inky` worker. Node is pinned to 22 (`.node-version`), and the
    build invokes pnpm *through* corepack (`corepack pnpm install … && corepack pnpm
    run build`) — **not** `corepack enable`, which fails on Render's read-only
-   `/usr/bin`. Start: `node dist/cli.js serve --config /etc/secrets/inky.config.json`.
+   `/usr/bin`. Start: `node packages/core/dist/cli.js serve --config /etc/secrets/inky.config.json`.
 2. **Secret File:** on the service, add a Secret File named **`inky.config.json`**
    with your config (org, repos, aliases, schedule, provider/model). Render mounts
    it at `/etc/secrets/inky.config.json`, which the start command points at. (Your
