@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { generateKeyPairSync } from 'node:crypto';
 import { ConfigSchema, loadSecrets, type Secrets } from './config.js';
-import { resolveOctokit, selectGitHubAuth } from './github-auth.js';
+import { clearOctokitCache, resolveOctokit, selectGitHubAuth } from './github-auth.js';
 
 const cfg = (over: Record<string, unknown> = {}) => ConfigSchema.parse({ org: 'your-org', ...over });
 const secrets = (over: Partial<Secrets> = {}): Secrets => ({ githubToken: '', ...over });
@@ -115,4 +115,25 @@ test('resolveOctokit builds an App-auth Octokit when an installation id is pinne
 test('resolveOctokit returns a plain PAT client in token mode', async () => {
   const octokit = await resolveOctokit(cfg(), secrets({ githubToken: 'ghp_x' }));
   assert.ok(octokit.rest.repos);
+});
+
+test('resolveOctokit memoizes one client per auth identity (the H3 fix)', async () => {
+  clearOctokitCache();
+  const c = cfg({ github: { appId: '777', installationId: 42 } });
+  const s = secrets({ githubAppPrivateKey: REAL_PEM });
+  const a = await resolveOctokit(c, s);
+  const b = await resolveOctokit(c, s);
+  // Same identity → same cached instance (no rebuild, no re-lookup per call).
+  assert.equal(a, b);
+  // A different identity (different installation) → a distinct client.
+  const other = await resolveOctokit(cfg({ github: { appId: '777', installationId: 99 } }), s);
+  assert.notEqual(a, other);
+});
+
+test('clearOctokitCache forces a fresh client on the next resolve', async () => {
+  clearOctokitCache();
+  const a = await resolveOctokit(cfg(), secrets({ githubToken: 'ghp_cache' }));
+  assert.equal(a, await resolveOctokit(cfg(), secrets({ githubToken: 'ghp_cache' })));
+  clearOctokitCache();
+  assert.notEqual(a, await resolveOctokit(cfg(), secrets({ githubToken: 'ghp_cache' })));
 });

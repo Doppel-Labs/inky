@@ -68,12 +68,17 @@ monetization are the *same* build.
 - **Billing:** Stripe subscriptions. Paid value = managed + status-vs-roadmap + history/trends.
 
 ### Build sequence (Phase 6)
-1. **GitHub App** (auth foundation; also ships to self-host).
-2. **Postgres + tenant/config model** (config → DB).
-3. **Dashboard MVP** (install → connect Discord → configure).
-4. **Multi-tenant worker** (queue + per-tenant cron, reusing the core).
-5. **Billing + tiers.**
-6. **Shared hosted `/standup` bot** (sharded) — last, optional.
+> Decisions locked in **`phase6-design.md`** (stack, monorepo layout, data model, pricing).
+0. **Decisions doc** — **done** (`phase6-design.md`).
+1. **GitHub App** (auth foundation; also ships to self-host) — **done**; **H3 client-cache
+   fix done** (memoized `resolveOctokit`, the single-tenant seed of the per-installation cache).
+2. **Monorepo migration** (pnpm workspace; `src → packages/core`, tests green from new path).
+3. **Postgres + tenant/config model** (`packages/db`, Drizzle; config → DB).
+4. **Dashboard MVP** (install → connect Discord → configure).
+5. **Multi-tenant worker** (queue + per-tenant cron, reusing the core). **⚠️ gated on a live
+   GitHub-App test.**
+6. **Billing + tiers.**
+7. **Shared hosted `/standup` bot** (sharded) — last, optional.
 
 ### Key decisions (to make when starting)
 - **Stack:** Next.js (dashboard + API) on Vercel + a separate always-on worker (Render/Fly) + Postgres (Neon) + pg-boss. Boring, cheap, fast.
@@ -100,4 +105,7 @@ dashboard + billing.
 4. **`reconcile()` → `ROADMAP.md`** declared roadmap — **done** (`roadmap-md` source).
 5. **Week-over-week trends** + **per-person opt-out** — **done.**
 6. **Next, still self-host / Discord (Track B):** a this-vs-last **sparkline** in the stats panel (cheap visual, pairs with trends); a **BYO-key `source: 'linear'`** reconcile adapter (status-vs-plan against Linear without OAuth).
-7. **Watch for hosted demand** → kick off **Phase 6** with the dashboard + Postgres (also the real home for richer charts, Slack, managed Linear OAuth). First Phase-6 code task: the **H3 fix** — cache the App Octokit per-installation (see `docs/reviews/github-app-auth-review.md`).
+7. **Phase 6 — STARTED** (decisions in `phase6-design.md`). Done: step 0 (decisions doc) +
+   step 1 (**H3 fix** — memoized `resolveOctokit`). **Next: step 2, the monorepo migration**
+   (`src → packages/core`), then `packages/db` (Postgres/Drizzle) + the dashboard. The
+   multi-tenant worker (step 5) is gated on a live GitHub-App test.

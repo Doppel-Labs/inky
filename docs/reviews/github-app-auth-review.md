@@ -44,15 +44,20 @@ follow-up commit. Tests: 120 → **125**, typecheck clean.
 - [x] **N1 (Nit)** — extracted the hardcoded `userAgent: 'inky'` to a shared
   `USER_AGENT` constant in `github.ts`, used by both the PAT and App clients.
 
-## Deferred / acknowledged (no change now)
+## Fixed (Phase 6, follow-up)
 
-- [ ] **H3 (High → Phase 6 prerequisite)** — `resolveOctokit` runs per `collect()` call,
-  so the worker rebuilds the Octokit every scheduled tick (and, without a pinned
-  `installationId`, re-looks-up the installation each tick). **Not a correctness bug**
-  (tokens are always fresh; pinning the id avoids the lookup). A code comment now flags
-  it. **Before the multi-tenant hosted tier**, hoist Octokit construction out of the
-  per-tick path (build + cache one client per installation, inject it like
-  `BuildStandupDeps`). Tracked here as a Phase-6 entry criterion.
+- [x] **H3 (High → Phase 6 prerequisite)** — **DONE** (Phase 6 step 1). `resolveOctokit` is
+  now memoized by auth identity (`clientCacheKey`): a single `buildStandup` (which collects
+  2–4×) and every worker tick reuse one client, and the unpinned-installation
+  `getOrgInstallation` lookup runs **once** per identity, not per call. Built as a reusable
+  memoizing provider (`clientCache` + `clearOctokitCache()`) — the **single-tenant form of
+  the Phase 6 per-installation client cache**: the multi-tenant worker keys the same map by
+  installation id and evicts on uninstall (see `docs/planning/phase6-design.md`). A rejected
+  build is evicted so a retry (e.g. after installing the App) works; cache key omits the
+  private key (rotating it needs a restart — documented at the code). Guarded by two tests
+  (memoization + cache clear).
+
+## Deferred / acknowledged (no change now)
 - [ ] **N2 (Nit)** — `appId` is a `string` (deliberate, to avoid JSON int-precision
   issues). No change. *Note for Phase 6:* the DB column for `appId` should be `TEXT` /
   `BIGINT`, not `INTEGER`.
