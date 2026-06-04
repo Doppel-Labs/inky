@@ -13,6 +13,9 @@ notes: How to run Inky as a long-running worker (inky serve) that posts the stan
 Inky's core is host-agnostic. To make it **run on its own**, you run the
 long-running worker:
 
+> **Already deployed?** Day-2 operations — change the schedule/channel, rotate a
+> token, post on demand — are in [`OPERATIONS.md`](OPERATIONS.md).
+
 ```bash
 inky serve          # schedules the standup forever (config.schedule)
 inky serve --once   # run one cycle now and exit (great for a first live test)
