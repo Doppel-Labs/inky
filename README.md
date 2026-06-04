@@ -1,5 +1,7 @@
 # Inky 🐙
 
+<img src="assets/inky-logo.svg" align="right" width="84" alt="Inky logo" />
+
 > Your team's daily standup, written for you.
 
 Inky is a Discord bot that reads an organization's GitHub activity each day and
@@ -12,8 +14,9 @@ plan, by reconciling activity against a task tracker.
 
 ## Status
 
-Early development. See [`docs/planning/inky-project-plan.md`](docs/planning/inky-project-plan.md)
-for the full spec, competitive analysis, and roadmap.
+**Live** — the MVP (Phases 0–5) is complete and running in production (self-hosted on a
+worker). See the [project plan](docs/planning/inky-project-plan.md) for the spec +
+decisions, and [roadmap & Phase 6](docs/planning/roadmap-and-phase-6.md) for what's next.
 
 | Phase | Scope | State |
 |---|---|---|

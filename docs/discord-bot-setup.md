@@ -21,9 +21,17 @@ laptop, with no tunneling.
 ## 1. Create a Discord application
 
 1. Go to the [Discord Developer Portal](https://discord.com/developers/applications)
-   → **New Application**. Name it (e.g. "Inky").
+   → **New Application** (pick "Build a Bot" if it asks). Name it (e.g. "Inky").
 2. On **General Information**, copy the **Application ID** → set it as
    `discord.applicationId` in `inky.config.json`.
+3. **Give it a face** (so it doesn't show up as a blank default):
+   - **App Icon:** upload a square PNG (512×512). Use `assets/inky-logo.svg` from this
+     repo (export to PNG), or a 🐙 octopus image. The bot's avatar inherits this.
+   - **Description:** paste a one-liner, e.g.
+     *"Your team's daily standup, written for you. I read your org's GitHub activity —
+     commits, PRs, reviews, issues — and post the daily & weekly standup to Discord,
+     zero input. Use `/standup` anytime. Open source 🐙 github.com/Doppel-Labs/inky"*
+   - (Optional) **Tags / Install settings** if you ever list it in the App Directory.
 
 ## 2. Add a bot + get the token
 
