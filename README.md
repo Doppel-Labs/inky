@@ -1,6 +1,14 @@
-# Inky 🐙
+<p align="center">
+  <img src="assets/inky-banner.png" width="680" alt="Inky — your team's daily standup, written for you" />
+</p>
 
-<img src="assets/inky-logo.svg" align="right" width="84" alt="Inky logo" />
+<p align="center">
+  <a href="https://github.com/Doppel-Labs/inky/actions/workflows/ci.yml"><img src="https://github.com/Doppel-Labs/inky/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
+  <img src="https://img.shields.io/badge/node-%E2%89%A520-3c873a.svg" alt="Node ≥20" />
+</p>
+
+# Inky 🐙
 
 > Your team's daily standup, written for you.
 
