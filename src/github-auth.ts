@@ -11,6 +11,7 @@
  * the network; the Octokit *construction* (`resolveOctokit`) is a thin live layer,
  * exercised against the real API like the rest of the GitHub data layer.
  */
+import { createHash } from 'node:crypto';
 import { createAppAuth } from '@octokit/auth-app';
 import { Octokit } from '@octokit/rest';
 import type { Config, Secrets } from './config.js';
@@ -65,18 +66,24 @@ export function selectGitHubAuth(config: Config, secrets: Secrets): GitHubAuth {
 
 /**
  * A stable cache key for one authenticated client, derived from the auth identity
- * (NOT the window or the call site). PAT mode keys on the token; App mode keys on
- * appId + the installation — pinned by id, or per-org when the id is auto-discovered
- * (the lookup is per-org, so the resolved installation client is reused under the
- * org key). Deliberately omits the private key: rotating it requires a process
- * restart (the cached client holds it for minting), which matches how secrets load
- * once at startup today. See docs/planning/phase6-design.md (client-cache).
+ * (NOT the window or the call site). PAT mode keys on a *hash* of the token — the raw
+ * bearer credential never lives in the Map's key set (heap dumps, any future cache
+ * introspection), which matters most for the Phase 6 multi-tenant cache that holds
+ * many tenants' tokens at once. App mode keys on appId + the installation — pinned by
+ * id, or per-org when the id is auto-discovered (the lookup is per-org, so the resolved
+ * installation client is reused under the org key; the org is lowercased because GitHub
+ * slugs are case-insensitive, so case-variant config doesn't make duplicate clients).
+ *
+ * Deliberately omits the private key: a cached App client holds the key for minting and
+ * does NOT self-heal if the key is rotated or revoked (it keeps minting with the old key
+ * until it 401s), so picking up a new key requires a process restart — which matches how
+ * secrets load once at startup today. See docs/planning/phase6-design.md (client-cache).
  */
 function clientCacheKey(auth: GitHubAuth, org: string): string {
-  if (auth.mode === 'pat') return `pat:${auth.token}`;
+  if (auth.mode === 'pat') return `pat:${createHash('sha256').update(auth.token).digest('hex')}`;
   return auth.installationId !== undefined
     ? `app:${auth.appId}:inst:${auth.installationId}`
-    : `app:${auth.appId}:org:${org}`;
+    : `app:${auth.appId}:org:${org.toLowerCase()}`;
 }
 
 /**
@@ -110,18 +117,20 @@ export async function resolveOctokit(
   config: Config,
   secrets: Secrets,
   log: (msg: string) => void = () => {},
+  /** Injectable constructor seam — tests pass a fake to exercise the cache/eviction. */
+  build: (auth: GitHubAuth, org: string, log: (msg: string) => void) => Promise<Octokit> = buildOctokit,
 ): Promise<Octokit> {
   const auth = selectGitHubAuth(config, secrets);
   const key = clientCacheKey(auth, config.org);
   const cached = clientCache.get(key);
   if (cached) return cached;
-  // Evict a failed build so a later retry (e.g. after installing the App) isn't
-  // stuck on a sticky rejected promise.
-  const built = buildOctokit(auth, config.org, log).catch((err) => {
-    clientCache.delete(key);
-    throw err;
-  });
+  const built = build(auth, config.org, log);
   clientCache.set(key, built);
+  // Evict a failed build so a retry (e.g. after installing the App) isn't stuck on a
+  // sticky rejected promise. Attaching this handler also marks `built` as handled, so a
+  // concurrent cache-hit caller that doesn't await won't trip an unhandledRejection —
+  // the awaiting caller(s) still receive the rejection from the returned promise.
+  built.catch(() => clientCache.delete(key));
   return built;
 }
 

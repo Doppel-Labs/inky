@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { generateKeyPairSync } from 'node:crypto';
 import { ConfigSchema, loadSecrets, type Secrets } from './config.js';
+import type { Octokit } from '@octokit/rest';
 import { clearOctokitCache, resolveOctokit, selectGitHubAuth } from './github-auth.js';
 
 const cfg = (over: Record<string, unknown> = {}) => ConfigSchema.parse({ org: 'your-org', ...over });
@@ -136,4 +137,51 @@ test('clearOctokitCache forces a fresh client on the next resolve', async () => 
   assert.equal(a, await resolveOctokit(cfg(), secrets({ githubToken: 'ghp_cache' })));
   clearOctokitCache();
   assert.notEqual(a, await resolveOctokit(cfg(), secrets({ githubToken: 'ghp_cache' })));
+});
+
+test('different PAT tokens get distinct cached clients (no key collision)', async () => {
+  clearOctokitCache();
+  const a = await resolveOctokit(cfg(), secrets({ githubToken: 'ghp_aaa' }));
+  const b = await resolveOctokit(cfg(), secrets({ githubToken: 'ghp_bbb' }));
+  assert.notEqual(a, b);
+  assert.equal(a, await resolveOctokit(cfg(), secrets({ githubToken: 'ghp_aaa' })));
+});
+
+test('a failed build is evicted, so a retry attempts a fresh build', async () => {
+  clearOctokitCache();
+  let calls = 0;
+  const flaky = async (): Promise<Octokit> => {
+    calls += 1;
+    if (calls === 1) throw new Error('boom');
+    return { id: calls } as unknown as Octokit;
+  };
+  const c = cfg();
+  const s = secrets({ githubToken: 'ghp_flaky' });
+  await assert.rejects(resolveOctokit(c, s, undefined, flaky), /boom/);
+  // The rejected promise was evicted, so the next call builds again rather than
+  // returning the cached rejection.
+  const ok = await resolveOctokit(c, s, undefined, flaky);
+  assert.equal(calls, 2);
+  assert.deepEqual(ok, { id: 2 });
+});
+
+test('concurrent callers share one in-flight build (no duplicate construction)', async () => {
+  clearOctokitCache();
+  let calls = 0;
+  let release!: (o: Octokit) => void;
+  const pending = new Promise<Octokit>((res) => {
+    release = res;
+  });
+  const slow = (): Promise<Octokit> => {
+    calls += 1;
+    return pending;
+  };
+  const c = cfg();
+  const s = secrets({ githubToken: 'ghp_slow' });
+  const p1 = resolveOctokit(c, s, undefined, slow);
+  const p2 = resolveOctokit(c, s, undefined, slow); // cache hit on the in-flight promise
+  release({ shared: true } as unknown as Octokit);
+  const [a, b] = await Promise.all([p1, p2]);
+  assert.equal(calls, 1); // one build despite two callers
+  assert.equal(a, b); // both get the same shared instance
 });
