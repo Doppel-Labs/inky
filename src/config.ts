@@ -25,6 +25,26 @@ export const ConfigSchema = z.object({
   /** GitHub org/owner to read activity from. */
   org: z.string().min(1),
   /**
+   * GitHub App auth (optional). Set this to authenticate as a GitHub App
+   * installation instead of a personal access token — fine-grained per-org
+   * permissions, higher rate limits, no PAT expiry, clean revoke. The App's
+   * private key is a SECRET and lives in env (GITHUB_APP_PRIVATE_KEY or
+   * GITHUB_APP_PRIVATE_KEY_PATH), never here. With both an App and a PAT
+   * configured, the App wins. See docs/github-app-setup.md.
+   */
+  github: z
+    .object({
+      /** GitHub App id (a number, but kept as a string). Env GITHUB_APP_ID overrides. */
+      appId: z.string().optional(),
+      /**
+       * The App's installation id on your org. Optional — when omitted it's
+       * looked up from the org on first use (and logged so you can pin it here
+       * to skip the lookup).
+       */
+      installationId: z.number().int().positive().optional(),
+    })
+    .default({}),
+  /**
    * Repos to include. Empty = all repos in the org the token can see.
    * Names are repo-only (no owner prefix); the org is applied.
    */
@@ -150,6 +170,10 @@ export type Config = z.infer<typeof ConfigSchema>;
 /** Secrets, always from the environment — never the config file. */
 export interface Secrets {
   githubToken: string;
+  /** GitHub App id from env (GITHUB_APP_ID); config `github.appId` takes precedence. */
+  githubAppId?: string;
+  /** GitHub App private key (PEM), from GITHUB_APP_PRIVATE_KEY or _PATH. Secret. */
+  githubAppPrivateKey?: string;
   anthropicApiKey?: string;
   groqApiKey?: string;
   openaiApiKey?: string;
@@ -159,11 +183,33 @@ export interface Secrets {
   discordBotToken?: string;
 }
 
+/**
+ * The GitHub App private key (PEM) from env: GITHUB_APP_PRIVATE_KEY (inline —
+ * literal `\n` sequences are un-escaped so a single-line env var works) or
+ * GITHUB_APP_PRIVATE_KEY_PATH (a file, which suits a Render Secret File / mounted
+ * key). Throws a clear error only if a configured path can't be read.
+ */
+function resolveAppPrivateKey(env: NodeJS.ProcessEnv): string | undefined {
+  const inline = env.GITHUB_APP_PRIVATE_KEY;
+  if (inline) return inline.includes('\\n') ? inline.replace(/\\n/g, '\n') : inline;
+  const path = env.GITHUB_APP_PRIVATE_KEY_PATH;
+  if (path) {
+    try {
+      return readFileSync(path, 'utf8');
+    } catch (err) {
+      throw new Error(`Failed to read GITHUB_APP_PRIVATE_KEY_PATH (${path}): ${(err as Error).message}`);
+    }
+  }
+  return undefined;
+}
+
 export function loadSecrets(env: NodeJS.ProcessEnv = process.env): Secrets {
   // Presence of the GitHub token is enforced where it's used (collect()), not
   // here, so setup-only commands like `register-commands` don't demand it.
   return {
     githubToken: env.GITHUB_TOKEN ?? env.GH_TOKEN ?? '',
+    githubAppId: env.GITHUB_APP_ID,
+    githubAppPrivateKey: resolveAppPrivateKey(env),
     anthropicApiKey: env.ANTHROPIC_API_KEY,
     groqApiKey: env.GROQ_API_KEY,
     openaiApiKey: env.OPENAI_API_KEY,

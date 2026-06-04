@@ -90,9 +90,11 @@ encrypted env rather than a local `.env`. See [`deployment.md`](deployment.md).
 - **Expiring + rotated** — set an expiration; regenerate periodically.
 - **Revocable** — delete the token in GitHub settings at any time to cut off access.
 
-## For the future hosted / multi-tenant version
+## Prefer not to manage a token? Use a GitHub App
 
-When Inky runs as a hosted service for teams (Phase 6), it will **not** ask
-anyone for a PAT. Instead it will use a **GitHub App** that each org installs:
-finer-grained permissions, per-install tokens, higher rate limits, and a clean
-revoke (uninstall the app). PATs are only for self-hosting.
+A PAT is the simplest way to start, but you can instead authenticate as a
+**GitHub App installation** — no expiry to rotate, higher rate limits, and a clean
+revoke (uninstall). Same read-only access; it's just a sturdier way to hold it, and
+it's the same auth the future hosted tier uses. See
+[`github-app-setup.md`](github-app-setup.md). You only need one of the two — if both
+are configured, the App wins.

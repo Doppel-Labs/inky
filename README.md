@@ -116,6 +116,7 @@ inky serve --once --dry-run                         # test one scheduled cycle, 
   skipped too.
 - **`.env`** — secrets only (`GITHUB_TOKEN`, an LLM key, `DISCORD_WEBHOOK_URL`). Never committed.
 - **GitHub token** — a **read-only** fine-grained PAT scoped to your org + the repos you want, with permissions **Contents · Metadata · Pull requests · Issues** (all *Read*). It can't push, change settings, or touch other orgs. Full walkthrough — incl. the classic-token fallback and where to store it when you deploy — in [`docs/github-token-setup.md`](docs/github-token-setup.md).
+- **GitHub App** *(optional upgrade)* — instead of a PAT, authenticate as a **GitHub App installation**: no token expiry, higher rate limits, clean revoke (uninstall). Same read-only access. Set `github.appId` in config (or `GITHUB_APP_ID`) + the private key in env (`GITHUB_APP_PRIVATE_KEY_PATH` or `GITHUB_APP_PRIVATE_KEY`); the App wins if both are set. Walkthrough: [`docs/github-app-setup.md`](docs/github-app-setup.md).
 
 ### LLM provider (the AI summary)
 

@@ -7,6 +7,7 @@
 import type { Config, Secrets } from './config.js';
 import { createNoiseMatcher } from './filter.js';
 import { IdentityResolver } from './identity.js';
+import type { Octokit } from '@octokit/rest';
 import {
   computeWindow,
   fetchCommits,
@@ -16,9 +17,9 @@ import {
   fetchReviews,
   filterStaleRepos,
   listOrgRepos,
-  makeOctokit,
   type MilestoneRecord,
 } from './github.js';
+import { resolveOctokit } from './github-auth.js';
 import type {
   CommitActivity,
   IssueActivity,
@@ -34,7 +35,7 @@ import type {
  * collect() and collectRoadmap().
  */
 async function resolveRepos(
-  octokit: ReturnType<typeof makeOctokit>,
+  octokit: Octokit,
   config: Config,
   now: Date,
   windowSince: string,
@@ -86,12 +87,7 @@ export async function collect(
   const now = opts.now ?? new Date();
   const log = opts.log ?? ((m: string) => process.stderr.write(m + '\n'));
 
-  if (!secrets.githubToken) {
-    throw new Error(
-      'Missing GitHub token. Set GITHUB_TOKEN (a PAT or fine-grained token with repo read access).',
-    );
-  }
-  const octokit = makeOctokit(secrets.githubToken);
+  const octokit = await resolveOctokit(config, secrets, log);
   const windowHours = opts.windowHours ?? config.windowHours;
   const window = computeWindow(windowHours, now);
   const resolver = new IdentityResolver(config.aliases);
@@ -159,10 +155,7 @@ export async function collectRoadmap(
   opts: { log?: (msg: string) => void; now?: Date; windowSince?: string } = {},
 ): Promise<MilestoneRecord[]> {
   const log = opts.log ?? ((m: string) => process.stderr.write(m + '\n'));
-  if (!secrets.githubToken) {
-    throw new Error('Missing GitHub token. Set GITHUB_TOKEN (a PAT or fine-grained token).');
-  }
-  const octokit = makeOctokit(secrets.githubToken);
+  const octokit = await resolveOctokit(config, secrets, log);
   const now = opts.now ?? new Date();
   const windowSince = opts.windowSince ?? computeWindow(config.windowHours, now).since;
   const repos = await resolveRepos(octokit, config, now, windowSince, log);
