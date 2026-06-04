@@ -106,10 +106,11 @@ See [`deployment.md`](deployment.md) for the rest of the deploy.
 
 `src/github-auth.ts` resolves auth purely from config + env:
 
-1. **App** — if an app id (`github.appId` or `GITHUB_APP_ID`) **and** a private key
-   (`GITHUB_APP_PRIVATE_KEY` / `_PATH`) are both present. The App is the upgrade, so it
-   wins even when a PAT is also set.
-2. **PAT** — otherwise `GITHUB_TOKEN` (or `GH_TOKEN`).
+1. **App** — when an **app id** is set (`github.appId`, else `GITHUB_APP_ID`). The app id
+   is the signal of intent, so the App wins even when a PAT is also set — and if the
+   private key is then missing or not a valid PEM, Inky **errors clearly** (it won't
+   silently fall back to a PAT, which may carry broader scopes).
+2. **PAT** — when no app id is set: `GITHUB_TOKEN` (or `GH_TOKEN`).
 3. Neither → a clear error pointing back here.
 
 ## Security model (summary)

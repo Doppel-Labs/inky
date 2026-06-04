@@ -34,7 +34,7 @@ export const ConfigSchema = z.object({
    */
   github: z
     .object({
-      /** GitHub App id (a number, but kept as a string). Env GITHUB_APP_ID overrides. */
+      /** GitHub App id (a number, but kept as a string). When set, takes precedence over the GITHUB_APP_ID env var. */
       appId: z.string().optional(),
       /**
        * The App's installation id on your org. Optional — when omitted it's
@@ -187,7 +187,11 @@ export interface Secrets {
  * The GitHub App private key (PEM) from env: GITHUB_APP_PRIVATE_KEY (inline —
  * literal `\n` sequences are un-escaped so a single-line env var works) or
  * GITHUB_APP_PRIVATE_KEY_PATH (a file, which suits a Render Secret File / mounted
- * key). Throws a clear error only if a configured path can't be read.
+ * key). Inline wins if both are set.
+ *
+ * Never throws — a missing/unreadable path returns undefined so loadSecrets stays
+ * safe for commands that need no GitHub creds (e.g. register-commands). When App
+ * auth is actually requested, selectGitHubAuth turns "no key" into a clear error.
  */
 function resolveAppPrivateKey(env: NodeJS.ProcessEnv): string | undefined {
   const inline = env.GITHUB_APP_PRIVATE_KEY;
@@ -196,8 +200,8 @@ function resolveAppPrivateKey(env: NodeJS.ProcessEnv): string | undefined {
   if (path) {
     try {
       return readFileSync(path, 'utf8');
-    } catch (err) {
-      throw new Error(`Failed to read GITHUB_APP_PRIVATE_KEY_PATH (${path}): ${(err as Error).message}`);
+    } catch {
+      return undefined; // surfaced by selectGitHubAuth at the point App auth is chosen
     }
   }
   return undefined;

@@ -22,8 +22,11 @@ import type {
   Window,
 } from './types.js';
 
+/** User-Agent sent on every GitHub request (shared by the PAT and App clients). */
+export const USER_AGENT = 'inky';
+
 export function makeOctokit(token: string): Octokit {
-  return new Octokit({ auth: token, userAgent: 'inky' });
+  return new Octokit({ auth: token, userAgent: USER_AGENT });
 }
 
 /** Compute a window ending now, spanning `hours` back. */
