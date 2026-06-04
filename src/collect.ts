@@ -140,7 +140,7 @@ export async function collect(
   const people = [...buckets.entries()]
     .map(([key, b]) => toPersonActivity(resolver, key, b, window))
     .filter((p): p is PersonActivity => p !== null)
-    .filter((p) => !(config.excludeBots && isBot(p.person.login)))
+    .filter((p) => includePerson(p.person.login, config))
     .sort(activityRank);
 
   return { org: config.org, window, people };
@@ -202,6 +202,17 @@ export async function collectDeclaredRoadmap(
 /** GitHub bot accounts have logins suffixed with `[bot]` (e.g. `dependabot[bot]`). */
 function isBot(login: string): boolean {
   return login.endsWith('[bot]');
+}
+
+/**
+ * Whether a resolved person appears in the standup: not a `[bot]` (when
+ * excludeBots), and not on the per-person opt-out list (case-insensitive,
+ * matched on canonical login). Pure, so it's unit-tested without the API.
+ */
+export function includePerson(login: string, config: Config): boolean {
+  if (config.excludeBots && isBot(login)) return false;
+  const target = login.toLowerCase();
+  return !config.excludePeople.some((name) => name.toLowerCase() === target);
 }
 
 function toPersonActivity(

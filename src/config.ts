@@ -67,6 +67,13 @@ export const ConfigSchema = z.object({
   /** Exclude bot accounts (logins ending in `[bot]`) from the standup. */
   excludeBots: z.boolean().default(true),
   /**
+   * Per-person opt-out (privacy). Canonical GitHub logins to omit entirely from
+   * the standup — case-insensitive. An excluded person never appears by name and
+   * their activity isn't counted in the team stats, so it's a clean "don't report
+   * me." Use the canonical login (the one Inky shows), not an alias.
+   */
+  excludePeople: z.array(z.string()).default([]),
+  /**
    * Extra glob patterns to exclude from LOC counts, on top of the built-in
    * defaults (lockfiles, generated code, venvs, build dirs, caches). Use for
    * repo-specific generated paths, e.g. "**\/*.snapshot" or "db/seed/**".

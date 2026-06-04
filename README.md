@@ -205,6 +205,18 @@ activity merges correctly:
 { "aliases": { "canonical-login": ["alias-login", "personal@example.com"] } }
 ```
 
+### Opting people out (privacy)
+
+Inky reads people's GitHub activity, so anyone can opt out. List canonical logins
+in `excludePeople` and they're omitted entirely — never named, and their activity
+isn't counted in the team stats:
+
+```json
+{ "excludePeople": ["carol"] }
+```
+
+A clean "don't report me." (Bots are already excluded by default via `excludeBots`.)
+
 ## Running on a schedule
 
 `inky serve` makes the standup post on its own — an in-process scheduler
