@@ -142,7 +142,8 @@ over a pre-built digest, so a small model holds up — defaults favor cost. Run
 - **Stats lead the report.** A team stats panel renders first (numbers before
   prose). `stats: "auto"` (default) shows it on weekly+ windows but not the daily
   pulse; `"on"`/`"off"` force it. Override per run with `--stats` / `--no-stats`.
-  LOC is labeled *size, not score* — see [`docs/research/agentic-coding-metrics.md`](docs/research/agentic-coding-metrics.md).
+  The PR-size distribution gets a compact unicode sparkline (`▅█▄▂▂` XS→XL). LOC is
+  labeled *size, not score* — see [`docs/research/agentic-coding-metrics.md`](docs/research/agentic-coding-metrics.md).
 - **Week-over-week trends.** With `trends: "auto"` (default), the panel adds direction
   arrows vs the previous equal-length window — e.g. `**12** PRs merged (↑3)`, `median
   PR cycle time: **18h** (↓4h)`. Shown wherever the stats panel shows; `--trends` /

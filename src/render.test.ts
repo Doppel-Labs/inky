@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isPromotionPR, renderMechanical, renderStandup, windowLabel } from './render.js';
+import { isPromotionPR, renderMechanical, renderStandup, sparkline, windowLabel } from './render.js';
 import type {
   CommitActivity,
   OrgActivity,
@@ -216,11 +216,17 @@ test('renderStandup shows the team stats panel only when enabled', () => {
   assert.match(withStats, /\*\*7\*\* PRs merged, \*\*9\*\* opened/);
   assert.match(withStats, /median PR cycle time: \*\*30h\*\* \(open → merged\)/);
   assert.match(withStats, /median time to first review: \*\*3h\*\*/);
-  // 12 sized PRs, 8 small (xs+s) → 67%
-  assert.match(withStats, /PR size: \*\*67%\*\* small \(<100 lines\) — XS 3 · S 5 · M 2 · L 1 · XL 1/);
+  // 12 sized PRs, 8 small (xs+s) → 67%, with a distribution sparkline
+  assert.match(withStats, /PR size `▅█▄▂▂` \(XS→XL\): \*\*67%\*\* small \(<100 lines\) — XS 3 · S 5 · M 2 · L 1 · XL 1/);
   assert.match(withStats, /\*\*40\*\* commits \(\*\*12\*\* unshipped\)/);
   assert.match(withStats, /\*\*2\*\* reverts \(\*\*5\.0%\*\* of commits\)/);
   assert.match(withStats, /size, not score/);
+});
+
+test('sparkline maps values onto the 8-level block ramp, scaled to the max', () => {
+  assert.equal(sparkline([0, 0, 0]), ''); // all zero → empty
+  assert.equal(sparkline([1]), '█'); // single value is its own max
+  assert.equal(sparkline([3, 5, 2, 1, 1]), '▅█▄▂▂');
 });
 
 test('renderStandup shows week-over-week trend arrows when prevStats is given', () => {

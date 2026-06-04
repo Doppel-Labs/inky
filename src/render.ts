@@ -214,6 +214,21 @@ function hoursDelta(cur: number | null, prev: number | null | undefined): string
   return d > 0 ? ` (↑${fmtDuration(d)})` : ` (↓${fmtDuration(-d)})`;
 }
 
+/** Block ramp for sparklines, low → high. */
+const SPARK_RAMP = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+
+/**
+ * A unicode block sparkline for a series of non-negative values, scaled to the
+ * max. Returns '' when every value is 0. The reusable visual primitive — used now
+ * for the PR-size distribution, and later for multi-window history once it's stored.
+ */
+export function sparkline(values: number[]): string {
+  const max = Math.max(0, ...values);
+  if (max === 0) return '';
+  const top = SPARK_RAMP.length - 1;
+  return values.map((v) => SPARK_RAMP[Math.round((v / max) * top)]!).join('');
+}
+
 function teamStatsPanel(
   t: TeamStats,
   window: { since: string; until: string },
@@ -241,8 +256,9 @@ function teamStatsPanel(
   const sizedPrs = sz.xs + sz.s + sz.m + sz.l + sz.xl;
   if (sizedPrs) {
     const smallPct = Math.round(((sz.xs + sz.s) / sizedPrs) * 100);
+    const spark = sparkline([sz.xs, sz.s, sz.m, sz.l, sz.xl]);
     lines.push(
-      `- PR size: **${smallPct}%** small (<100 lines) — ` +
+      `- PR size \`${spark}\` (XS→XL): **${smallPct}%** small (<100 lines) — ` +
         `XS ${sz.xs} · S ${sz.s} · M ${sz.m} · L ${sz.l} · XL ${sz.xl}`,
     );
   }
