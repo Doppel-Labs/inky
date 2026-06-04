@@ -125,8 +125,10 @@ The repo ships a [`render.yaml`](../render.yaml) Blueprint that defines a
 connects out over Discord's gateway).
 
 1. Render dashboard → **New → Blueprint** → pick this repo. It reads `render.yaml`
-   and creates the `inky` worker (build `pnpm install && pnpm build`, start
-   `node dist/cli.js serve --config /etc/secrets/inky.config.json`).
+   and creates the `inky` worker. Node is pinned to 22 (`.node-version`), and the
+   build invokes pnpm *through* corepack (`corepack pnpm install … && corepack pnpm
+   run build`) — **not** `corepack enable`, which fails on Render's read-only
+   `/usr/bin`. Start: `node dist/cli.js serve --config /etc/secrets/inky.config.json`.
 2. **Secret File:** on the service, add a Secret File named **`inky.config.json`**
    with your config (org, repos, aliases, schedule, provider/model). Render mounts
    it at `/etc/secrets/inky.config.json`, which the start command points at. (Your
