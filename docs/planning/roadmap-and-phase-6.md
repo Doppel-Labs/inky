@@ -29,10 +29,14 @@ Now that it's public, lower the friction to discover, trust, and run it:
 
 ## Track B — Feature depth (as users pull it)
 - `/standup` slash command — **done** (shipped + hosted).
-- **`reconcile()` extensions:** a config/`ROADMAP.md`-declared roadmap (for the many teams that don't use GitHub Milestones), then GitHub Projects v2, then Linear / Notion adapters. (`source` enum already leaves room.)
-- **Week-over-week trends** on the stats panel — direction beats a snapshot.
-- **Slack delivery** — same core, a second delivery adapter; meaningfully widens the market.
-- **Privacy controls** — per-person opt-out, since it reads people's activity (adoption + trust).
+- **`reconcile()` extensions:** `ROADMAP.md`-declared roadmap — **done** (`roadmap-md` source). Next: GitHub Projects v2, then Linear / Notion adapters (see below). (`source` enum already leaves room.)
+- **Week-over-week trends** on the stats panel — **done** (`config.trends`, ↑/↓/→ vs the prior window).
+- **Per-person opt-out** (`excludePeople`) — **done** (privacy/trust).
+- **Slack delivery** — deferred to Phase 6: it's a paid-tier surface (managed multi-workspace), so it lands with monetization, not before. Self-host stays Discord for now.
+
+### Backlog (captured from discussion, not yet scheduled)
+- **Team-performance visuals (charts).** Discord renders markdown/embeds, not charts, so three tiers: (1) **now, cheap, on-brand** — unicode sparklines / mini bar charts in the stats panel (e.g. a 6-week sparkline next to each trend metric); zero deps, fits the in-Discord ethos. (2) **image attach** — render a PNG (QuickChart.io URL, or a tiny serverside chart) and attach to the embed; richer, still self-host-able. (3) **the real home** — the Phase 6 web **dashboard** with interactive charts over history. *Dependency:* anything beyond "this vs last window" needs **stored history** (past windows) — which is Phase 6 Postgres. So: a this-vs-last sparkline is doable now (pairs with the trends feature); multi-week/quarter charts wait for storage + dashboard.
+- **Linear / task-tracker integration.** Architecturally clean: it's another `reconcile()` **`source`** (the enum + the `roadmap-md`/milestone precedent already make this additive — fetch goals/issues from Linear, map to `RoadmapItem`, reuse `reconcileDeclared`-style logic). **But** it needs Linear **OAuth / API tokens**, which is real auth surface and a strong **paid-tier differentiator**, so it leans Phase 6. *Self-host MVP path:* a BYO Linear API key (like the BYO-LLM-key model) could ship a `source: 'linear'` without OAuth, ahead of the hosted tier. Same pattern later for Notion/Jira. This is high-value: "status vs plan" against the tracker teams actually use is the paid hook (plan §1 secondary wedge).
 
 ## Track C — Phase 6: the hosted multi-tenant tier (the business)
 
@@ -90,8 +94,10 @@ pull; when 2–3 teams ask "can you host it for us?", that's the green light to 
 dashboard + billing.
 
 ## Concrete next steps (prioritized)
-1. **Adoption polish:** README hero + logo, a demo GIF/screenshot, GitHub Actions CI, `CONTRIBUTING.md`.
+1. **Adoption polish** — **done:** README hero + badges, GitHub Actions CI, `CONTRIBUTING.md`, issue/PR templates, a distribution kit. *(Remaining: a demo GIF/screenshot — needs a live capture; distribution posts.)*
 2. *(Keys: no rotation needed — `.env` was never committed; the PAT auto-expires.)*
-3. **GitHub App** (stepping stone — better self-host UX + Phase 6 foundation).
-4. **`reconcile()` → `ROADMAP.md`** declared roadmap (status-vs-plan for milestone-less teams).
-5. **Watch for hosted demand** → kick off Phase 6 with the dashboard + Postgres.
+3. **GitHub App** (self-host auth foundation) — **done.** *(Multi-tenant install flow still pending — Phase 6.)*
+4. **`reconcile()` → `ROADMAP.md`** declared roadmap — **done** (`roadmap-md` source).
+5. **Week-over-week trends** + **per-person opt-out** — **done.**
+6. **Next, still self-host / Discord (Track B):** a this-vs-last **sparkline** in the stats panel (cheap visual, pairs with trends); a **BYO-key `source: 'linear'`** reconcile adapter (status-vs-plan against Linear without OAuth).
+7. **Watch for hosted demand** → kick off **Phase 6** with the dashboard + Postgres (also the real home for richer charts, Slack, managed Linear OAuth). First Phase-6 code task: the **H3 fix** — cache the App Octokit per-installation (see `docs/reviews/github-app-auth-review.md`).
