@@ -14,6 +14,7 @@ import {
   fetchMilestones,
   fetchPullRequests,
   fetchReviews,
+  filterStaleRepos,
   listOrgRepos,
   makeOctokit,
   type MilestoneRecord,
@@ -26,6 +27,29 @@ import type {
   PullRequestActivity,
   ReviewActivity,
 } from './types.js';
+
+/**
+ * The repos to scan: an explicit `config.repos` list, or all non-archived org
+ * repos with stale ones skipped per `config.staleDays` (logged). Shared by
+ * collect() and collectRoadmap().
+ */
+async function resolveRepos(
+  octokit: ReturnType<typeof makeOctokit>,
+  config: Config,
+  now: Date,
+  log: (msg: string) => void,
+): Promise<string[]> {
+  if (config.repos.length) return config.repos;
+  const all = await listOrgRepos(octokit, config.org);
+  const { kept, skipped } = filterStaleRepos(all, { staleDays: config.staleDays, now });
+  if (skipped.length) {
+    log(
+      `inky: skipping ${skipped.length} stale repo(s) — no push in >${config.staleDays}d: ` +
+        skipped.map((r) => r.name).join(', '),
+    );
+  }
+  return kept;
+}
 
 /** Mutable per-person accumulator, keyed by canonical login. */
 interface Bucket {
@@ -81,7 +105,7 @@ export async function collect(
     return b;
   };
 
-  const repos = config.repos.length ? config.repos : await listOrgRepos(octokit, config.org);
+  const repos = await resolveRepos(octokit, config, now, log);
   log(`inky: collecting ${config.org} over ${windowHours}h across ${repos.length} repo(s)`);
 
   for (const repo of repos) {
@@ -130,14 +154,14 @@ export async function collect(
 export async function collectRoadmap(
   config: Config,
   secrets: Secrets,
-  opts: { log?: (msg: string) => void } = {},
+  opts: { log?: (msg: string) => void; now?: Date } = {},
 ): Promise<MilestoneRecord[]> {
   const log = opts.log ?? ((m: string) => process.stderr.write(m + '\n'));
   if (!secrets.githubToken) {
     throw new Error('Missing GitHub token. Set GITHUB_TOKEN (a PAT or fine-grained token).');
   }
   const octokit = makeOctokit(secrets.githubToken);
-  const repos = config.repos.length ? config.repos : await listOrgRepos(octokit, config.org);
+  const repos = await resolveRepos(octokit, config, opts.now ?? new Date(), log);
   const all: MilestoneRecord[] = [];
   for (const repo of repos) {
     try {

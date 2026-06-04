@@ -29,6 +29,18 @@ export const ConfigSchema = z.object({
    * Names are repo-only (no owner prefix); the org is applied.
    */
   repos: z.array(z.string()).default([]),
+  /**
+   * When auto-discovering all org repos (`repos: []`), skip any repo with no push
+   * in this many days — avoids querying long-dead repos. `0` (default) scans all.
+   *
+   * IMPORTANT: set it **≥ your longest scheduled window**. The filter is global
+   * (applies to every run), so if you post a weekly (7-day) standup, a `staleDays`
+   * below 7 would skip repos that *do* have commits in that week. `14` is a safe
+   * choice for a daily + weekly setup. Based on last *push*, so a repo with only
+   * issue/review activity (no commits) for this long is skipped too. Ignored when
+   * `repos` is an explicit list.
+   */
+  staleDays: z.number().int().nonnegative().default(0),
   /** Standup window length in hours (default 24). */
   windowHours: z.number().int().positive().default(24),
   /** Exclude bot accounts (logins ending in `[bot]`) from the standup. */

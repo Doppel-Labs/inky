@@ -1,6 +1,7 @@
 {
   "org": "your-org",
   "repos": [],
+  "staleDays": 0,
   "windowHours": 24,
   "excludeBots": true,
   "extraNoisePatterns": [],

@@ -114,7 +114,7 @@ export async function buildStandup(
     let roadmap: RoadmapStatus | undefined;
     if (roadmapEnabled) {
       try {
-        const milestones = await collectRoadmap(config, secrets, { log });
+        const milestones = await collectRoadmap(config, secrets, { log, now: opts.now });
         roadmap = reconcile(
           {
             milestones,

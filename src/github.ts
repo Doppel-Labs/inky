@@ -48,14 +48,42 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promis
   return results;
 }
 
-/** List non-archived repo names in an org (no owner prefix). */
-export async function listOrgRepos(octokit: Octokit, org: string): Promise<string[]> {
+/** A non-archived org repo + when it was last pushed to. */
+export interface RepoMeta {
+  name: string;
+  /** ISO last-push timestamp, or null if never pushed. */
+  pushedAt: string | null;
+}
+
+/** List non-archived repos in an org with their last-push time (no owner prefix). */
+export async function listOrgRepos(octokit: Octokit, org: string): Promise<RepoMeta[]> {
   const repos = await octokit.paginate(octokit.rest.repos.listForOrg, {
     org,
     type: 'all',
     per_page: 100,
   });
-  return repos.filter((r) => !r.archived).map((r) => r.name);
+  return repos.filter((r) => !r.archived).map((r) => ({ name: r.name, pushedAt: r.pushed_at ?? null }));
+}
+
+/**
+ * Partition discovered repos into ones to scan vs ones to skip as stale (no push
+ * in `staleDays` days). `staleDays <= 0` disables skipping (keep all). Pure +
+ * deterministic (clock injected) so it's unit-tested without the API.
+ */
+export function filterStaleRepos(
+  repos: RepoMeta[],
+  opts: { staleDays: number; now: Date },
+): { kept: string[]; skipped: RepoMeta[] } {
+  if (!opts.staleDays || opts.staleDays <= 0) return { kept: repos.map((r) => r.name), skipped: [] };
+  const cutoff = opts.now.getTime() - opts.staleDays * 86_400_000;
+  const kept: string[] = [];
+  const skipped: RepoMeta[] = [];
+  for (const r of repos) {
+    const pushed = r.pushedAt ? new Date(r.pushedAt).getTime() : 0;
+    if (pushed >= cutoff) kept.push(r.name);
+    else skipped.push(r);
+  }
+  return { kept, skipped };
 }
 
 function inWindow(iso: string | null | undefined, w: Window): boolean {
