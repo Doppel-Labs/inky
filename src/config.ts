@@ -30,17 +30,18 @@ export const ConfigSchema = z.object({
    */
   repos: z.array(z.string()).default([]),
   /**
-   * When auto-discovering all org repos (`repos: []`), skip any repo with no push
-   * in this many days — avoids querying long-dead repos. `0` (default) scans all.
-   *
-   * IMPORTANT: set it **≥ your longest scheduled window**. The filter is global
-   * (applies to every run), so if you post a weekly (7-day) standup, a `staleDays`
-   * below 7 would skip repos that *do* have commits in that week. `14` is a safe
-   * choice for a daily + weekly setup. Based on last *push*, so a repo with only
-   * issue/review activity (no commits) for this long is skipped too. Ignored when
-   * `repos` is an explicit list.
+   * When auto-discovering all org repos (`repos: []`), skip repos with no recent
+   * push so long-dead repos aren't queried. Ignored when `repos` is an explicit list.
+   *   - "auto" (recommended): skip a repo with no push since THIS run's window
+   *     started — so the daily skips >24h-quiet repos and the weekly skips >7d-quiet,
+   *     each correct by construction. No number to tune.
+   *   - a number N: fixed threshold — skip repos with no push in N days. Must be
+   *     ≥ your longest scheduled window (the filter is per-run but uses a fixed N).
+   *   - 0 (default): scan every repo.
+   * Based on last *push*, so a repo with only issue/review activity (no commits)
+   * in the window is skipped too.
    */
-  staleDays: z.number().int().nonnegative().default(0),
+  staleDays: z.union([z.number().int().nonnegative(), z.literal('auto')]).default(0),
   /** Standup window length in hours (default 24). */
   windowHours: z.number().int().positive().default(24),
   /** Exclude bot accounts (logins ending in `[bot]`) from the standup. */

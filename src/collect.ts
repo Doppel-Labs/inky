@@ -37,14 +37,16 @@ async function resolveRepos(
   octokit: ReturnType<typeof makeOctokit>,
   config: Config,
   now: Date,
+  windowSince: string,
   log: (msg: string) => void,
 ): Promise<string[]> {
   if (config.repos.length) return config.repos;
   const all = await listOrgRepos(octokit, config.org);
-  const { kept, skipped } = filterStaleRepos(all, { staleDays: config.staleDays, now });
+  const { kept, skipped } = filterStaleRepos(all, { staleDays: config.staleDays, now, windowSince });
   if (skipped.length) {
+    const reason = config.staleDays === 'auto' ? 'no push in the window' : `no push in >${config.staleDays}d`;
     log(
-      `inky: skipping ${skipped.length} stale repo(s) — no push in >${config.staleDays}d: ` +
+      `inky: skipping ${skipped.length} stale repo(s) — ${reason}: ` +
         skipped.map((r) => r.name).join(', '),
     );
   }
@@ -105,7 +107,7 @@ export async function collect(
     return b;
   };
 
-  const repos = await resolveRepos(octokit, config, now, log);
+  const repos = await resolveRepos(octokit, config, now, window.since, log);
   log(`inky: collecting ${config.org} over ${windowHours}h across ${repos.length} repo(s)`);
 
   for (const repo of repos) {
@@ -154,14 +156,16 @@ export async function collect(
 export async function collectRoadmap(
   config: Config,
   secrets: Secrets,
-  opts: { log?: (msg: string) => void; now?: Date } = {},
+  opts: { log?: (msg: string) => void; now?: Date; windowSince?: string } = {},
 ): Promise<MilestoneRecord[]> {
   const log = opts.log ?? ((m: string) => process.stderr.write(m + '\n'));
   if (!secrets.githubToken) {
     throw new Error('Missing GitHub token. Set GITHUB_TOKEN (a PAT or fine-grained token).');
   }
   const octokit = makeOctokit(secrets.githubToken);
-  const repos = await resolveRepos(octokit, config, opts.now ?? new Date(), log);
+  const now = opts.now ?? new Date();
+  const windowSince = opts.windowSince ?? computeWindow(config.windowHours, now).since;
+  const repos = await resolveRepos(octokit, config, now, windowSince, log);
   const all: MilestoneRecord[] = [];
   for (const repo of repos) {
     try {

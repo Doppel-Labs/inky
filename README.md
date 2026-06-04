@@ -92,12 +92,17 @@ inky serve --once --dry-run                         # test one scheduled cycle, 
 - **`inky.config.json`** — non-secret config: org, repos, window, identity
   aliases, Discord target, LLM provider/model. Copy from `inky.config.example.json`.
 - **Which repos** — `repos: []` scans every non-archived repo in the org; or list
-  specific ones (`["api", "web"]`). With `repos: []`, set **`staleDays`** to skip
-  repos with no push in N days so long-dead repos aren't queried — the run logs
-  which it skipped. Set it **≥ your longest scheduled window** (the filter is
-  global, so below your weekly's 7 days it'd skip repos with real weekly activity);
-  `14` is a safe daily+weekly choice. Based on last push, so a repo with only
-  issue/review activity that long is skipped too; use `0` to scan everything.
+  specific ones (`["api", "web"]`). With `repos: []`, **`staleDays`** skips repos
+  with no recent push so long-dead repos aren't queried (the run logs which):
+  - **`"auto"`** (recommended) — skips repos with no push since *that run's* window
+    started, so the daily skips >24h-quiet repos and the weekly >7d-quiet, each
+    correct by construction. No number to tune.
+  - a **number `N`** — fixed: skip repos with no push in N days (must be ≥ your
+    longest scheduled window).
+  - **`0`** — scan everything.
+
+  Based on last push, so a repo with only issue/review activity in the window is
+  skipped too.
 - **`.env`** — secrets only (`GITHUB_TOKEN`, an LLM key, `DISCORD_WEBHOOK_URL`). Never committed.
 - **GitHub token** — a **read-only** fine-grained PAT scoped to your org + the repos you want, with permissions **Contents · Metadata · Pull requests · Issues** (all *Read*). It can't push, change settings, or touch other orgs. Full walkthrough — incl. the classic-token fallback and where to store it when you deploy — in [`docs/github-token-setup.md`](docs/github-token-setup.md).
 

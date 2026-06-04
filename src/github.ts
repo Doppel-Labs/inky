@@ -66,16 +66,25 @@ export async function listOrgRepos(octokit: Octokit, org: string): Promise<RepoM
 }
 
 /**
- * Partition discovered repos into ones to scan vs ones to skip as stale (no push
- * in `staleDays` days). `staleDays <= 0` disables skipping (keep all). Pure +
- * deterministic (clock injected) so it's unit-tested without the API.
+ * Partition discovered repos into ones to scan vs ones to skip as stale.
+ *   - staleDays "auto": skip repos with no push since `windowSince` (the run's
+ *     window start) — correct for any window, no tuning.
+ *   - staleDays N > 0: skip repos with no push in N days (fixed threshold).
+ *   - staleDays 0: keep all.
+ * Pure + deterministic (clock + window injected) so it's unit-tested without the API.
  */
 export function filterStaleRepos(
   repos: RepoMeta[],
-  opts: { staleDays: number; now: Date },
+  opts: { staleDays: number | 'auto'; now: Date; windowSince: string },
 ): { kept: string[]; skipped: RepoMeta[] } {
-  if (!opts.staleDays || opts.staleDays <= 0) return { kept: repos.map((r) => r.name), skipped: [] };
-  const cutoff = opts.now.getTime() - opts.staleDays * 86_400_000;
+  let cutoff: number;
+  if (opts.staleDays === 'auto') {
+    cutoff = new Date(opts.windowSince).getTime();
+  } else if (opts.staleDays > 0) {
+    cutoff = opts.now.getTime() - opts.staleDays * 86_400_000;
+  } else {
+    return { kept: repos.map((r) => r.name), skipped: [] };
+  }
   const kept: string[] = [];
   const skipped: RepoMeta[] = [];
   for (const r of repos) {
