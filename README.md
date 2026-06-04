@@ -143,6 +143,11 @@ over a pre-built digest, so a small model holds up — defaults favor cost. Run
   prose). `stats: "auto"` (default) shows it on weekly+ windows but not the daily
   pulse; `"on"`/`"off"` force it. Override per run with `--stats` / `--no-stats`.
   LOC is labeled *size, not score* — see [`docs/research/agentic-coding-metrics.md`](docs/research/agentic-coding-metrics.md).
+- **Week-over-week trends.** With `trends: "auto"` (default), the panel adds direction
+  arrows vs the previous equal-length window — e.g. `**12** PRs merged (↑3)`, `median
+  PR cycle time: **18h** (↓4h)`. Shown wherever the stats panel shows; `--trends` /
+  `--no-trends` (or `trends: "off"`) override. It costs one extra activity fetch (the
+  prior window), so it only runs when the panel does (weekly+).
 - **Per-person stats** (`statsPerPerson: true`, default) add a stat line under each
   name, paired with the team panel (shown where it shows). `--stats-per-person`
   forces them on even on the daily; set `false` to keep the post team-level only.

@@ -143,6 +143,13 @@ export const ConfigSchema = z.object({
    */
   stats: z.enum(['auto', 'on', 'off']).default('auto'),
   /**
+   * Week-over-week trend arrows on the stats panel (direction vs the previous
+   * equal-length window). 'auto'/'on' show them wherever the stats panel shows;
+   * 'off' never. Costs one extra activity fetch (the prior window), so it only
+   * runs when the panel is shown (weekly+). CLI --trends/--no-trends override.
+   */
+  trends: z.enum(['auto', 'on', 'off']).default('auto'),
+  /**
    * Add a per-person stat line under each name. On by default and paired with the
    * team panel (shows wherever team stats show — i.e. weekly+); CLI --stats-per-person
    * forces it on even on the daily pulse. Set false to keep the post team-level only.

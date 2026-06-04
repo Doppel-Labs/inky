@@ -10,7 +10,7 @@
  */
 import type { Config, Secrets } from './config.js';
 import type { MilestoneRecord } from './github.js';
-import type { OrgActivity, RoadmapStatus, Window } from './types.js';
+import type { OrgActivity, RoadmapStatus, TeamStats, Window } from './types.js';
 import {
   collect as collectImpl,
   collectDeclaredRoadmap as collectDeclaredRoadmapImpl,
@@ -40,6 +40,8 @@ export interface BuildStandupOptions {
   stats?: boolean;
   /** Force per-person stat lines. undefined = follow config + whether stats show. */
   statsPerPerson?: boolean;
+  /** Force week-over-week trend arrows on/off. undefined = config.trends (when stats show). */
+  trends?: boolean;
   /** Force the roadmap status block on/off. undefined = config.roadmap.enabled. */
   roadmap?: boolean;
   /** Progress sink (defaults to no-op). */
@@ -88,6 +90,17 @@ function shouldShowStats(config: Config, isDaily: boolean, forced: boolean | und
   if (config.stats === 'on') return true;
   if (config.stats === 'off') return false;
   return !isDaily; // 'auto'
+}
+
+/**
+ * Whether to show week-over-week trend arrows. They live on the stats panel, so
+ * they require it to be shown; --trends/--no-trends force, else config.trends
+ * ('auto'/'on' show; 'off' never).
+ */
+function shouldShowTrends(config: Config, showStats: boolean, forced: boolean | undefined): boolean {
+  if (!showStats) return false;
+  if (forced !== undefined) return forced;
+  return config.trends !== 'off';
 }
 
 export async function buildStandup(
@@ -154,6 +167,25 @@ export async function buildStandup(
         log(`standup: roadmap reconcile failed (${(err as Error).message}); skipping status vs plan.`);
       }
     }
+    // Week-over-week trends — only when the stats panel shows. Costs one extra
+    // collect (the prior equal-length window); non-fatal if it fails.
+    let prevStats: TeamStats | undefined;
+    if (shouldShowTrends(config, showStats, opts.trends)) {
+      try {
+        const w = activity.window;
+        const lenHours = Math.max(1, Math.round((Date.parse(w.until) - Date.parse(w.since)) / 3_600_000));
+        const prevActivity = await collect(config, secrets, {
+          windowHours: lenHours,
+          now: new Date(w.since),
+          log,
+        });
+        const { computeTeamStats } = await import('./summarize.js');
+        prevStats = computeTeamStats(prevActivity);
+        log(`standup: trends — comparing against the previous ${lenHours}h window.`);
+      } catch (err) {
+        log(`standup: trends fetch failed (${(err as Error).message}); stats shown without trends.`);
+      }
+    }
     try {
       const { summarize } = await import('./summarize.js');
       const standup = await summarize(activity, {
@@ -165,7 +197,7 @@ export async function buildStandup(
       });
       log(`standup: summarized with ${llm.provider} (${llm.model}).`);
       return {
-        markdown: renderStandup(standup, { showStats, statsPerPerson: showPerPerson }),
+        markdown: renderStandup(standup, { showStats, statsPerPerson: showPerPerson, prevStats }),
         via: { provider: llm.provider, model: llm.model },
         ...meta,
       };

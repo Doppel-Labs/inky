@@ -134,6 +134,8 @@ export interface RenderOptions {
   showStats?: boolean;
   /** Also show a per-person stat line under each name (renderStandup only). */
   statsPerPerson?: boolean;
+  /** Previous equal-window stats — when set, the panel shows trend arrows. */
+  prevStats?: TeamStats;
 }
 
 /** Render the full mechanical standup as Discord-flavored markdown. */
@@ -195,17 +197,44 @@ function fmtDuration(hours: number): string {
  * than score — these inform, they are not a leaderboard (see docs/research). Adds
  * a throughput proxy (PR cycle time) and a stability proxy (revert rate).
  */
-function teamStatsPanel(t: TeamStats, window: { since: string; until: string }): string[] {
-  const lines = [`### 📊 Team stats — ${statsPeriod(window)}`];
+/** Trend arrow for a count vs the previous period: ↑/↓ with the magnitude, → if flat. */
+function countDelta(cur: number, prev: number | undefined): string {
+  if (prev === undefined) return '';
+  const d = cur - prev;
+  if (d === 0) return ' (→)';
+  return d > 0 ? ` (↑${d})` : ` (↓${-d})`;
+}
+
+/** Trend arrow for a duration metric (hours); both windows must have a value. */
+function hoursDelta(cur: number | null, prev: number | null | undefined): string {
+  if (cur === null || prev === null || prev === undefined) return '';
+  const d = cur - prev;
+  if (Math.abs(d) < 0.05) return ' (→)';
+  // Arrow tracks the number; lower cycle time / review latency is the better direction.
+  return d > 0 ? ` (↑${fmtDuration(d)})` : ` (↓${fmtDuration(-d)})`;
+}
+
+function teamStatsPanel(
+  t: TeamStats,
+  window: { since: string; until: string },
+  prev?: TeamStats,
+): string[] {
+  const head = `### 📊 Team stats — ${statsPeriod(window)}`;
+  const lines = [prev ? `${head} · trend vs previous period` : head];
   lines.push(
-    `- **${t.prsMerged}** PRs merged` + (t.prsOpened ? `, **${t.prsOpened}** opened` : ''),
+    `- **${t.prsMerged}** PRs merged${countDelta(t.prsMerged, prev?.prsMerged)}` +
+      (t.prsOpened ? `, **${t.prsOpened}** opened${countDelta(t.prsOpened, prev?.prsOpened)}` : ''),
   );
   if (t.medianPrCycleHours !== null) {
-    lines.push(`- median PR cycle time: **${fmtDuration(t.medianPrCycleHours)}** (open → merged)`);
+    lines.push(
+      `- median PR cycle time: **${fmtDuration(t.medianPrCycleHours)}**` +
+        `${hoursDelta(t.medianPrCycleHours, prev?.medianPrCycleHours)} (open → merged)`,
+    );
   }
   if (t.medianTimeToFirstReviewHours !== null) {
     lines.push(
-      `- median time to first review: **${fmtDuration(t.medianTimeToFirstReviewHours)}**`,
+      `- median time to first review: **${fmtDuration(t.medianTimeToFirstReviewHours)}**` +
+        hoursDelta(t.medianTimeToFirstReviewHours, prev?.medianTimeToFirstReviewHours),
     );
   }
   const sz = t.prSizes;
@@ -218,13 +247,13 @@ function teamStatsPanel(t: TeamStats, window: { since: string; until: string }):
     );
   }
   lines.push(
-    `- **${t.commits}** commits` +
+    `- **${t.commits}** commits${countDelta(t.commits, prev?.commits)}` +
       (t.unshippedCommits ? ` (**${t.unshippedCommits}** unshipped)` : ''),
   );
   if (t.commits) {
     lines.push(`- **${t.reverts}** reverts (**${(t.revertRate * 100).toFixed(1)}%** of commits)`);
   }
-  if (t.reviews) lines.push(`- **${t.reviews}** reviews given`);
+  if (t.reviews) lines.push(`- **${t.reviews}** reviews given${countDelta(t.reviews, prev?.reviews)}`);
   if (t.issuesOpened || t.issuesClosed) {
     lines.push(`- issues: **${t.issuesOpened}** opened, **${t.issuesClosed}** closed`);
   }
@@ -300,7 +329,7 @@ export function renderStandup(standup: Standup, opts: RenderOptions = {}): strin
 
   // Stats lead the report (numbers first, evaluator-style), then the prose.
   if (opts.showStats && standup.teamTotals) {
-    for (const line of teamStatsPanel(standup.teamTotals, window)) out.push(line);
+    for (const line of teamStatsPanel(standup.teamTotals, window, opts.prevStats)) out.push(line);
     out.push('');
   }
 

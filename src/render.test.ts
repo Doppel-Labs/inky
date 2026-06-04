@@ -7,6 +7,7 @@ import type {
   PersonActivity,
   PullRequestActivity,
   Standup,
+  TeamStats,
 } from './types.js';
 
 const window = { since: '2026-05-29T00:00:00.000Z', until: '2026-05-30T00:00:00.000Z' };
@@ -220,6 +221,24 @@ test('renderStandup shows the team stats panel only when enabled', () => {
   assert.match(withStats, /\*\*40\*\* commits \(\*\*12\*\* unshipped\)/);
   assert.match(withStats, /\*\*2\*\* reverts \(\*\*5\.0%\*\* of commits\)/);
   assert.match(withStats, /size, not score/);
+});
+
+test('renderStandup shows week-over-week trend arrows when prevStats is given', () => {
+  const s = standupWithStats();
+  const prev: TeamStats = {
+    ...s.teamTotals!,
+    prsMerged: 5,
+    prsOpened: 9,
+    medianPrCycleHours: 36,
+    medianTimeToFirstReviewHours: 2,
+    commits: 30,
+  };
+  const md = renderStandup(s, { showStats: true, prevStats: prev });
+  assert.match(md, /Team stats — this week · trend vs previous period/);
+  assert.match(md, /\*\*7\*\* PRs merged \(↑2\), \*\*9\*\* opened \(→\)/);
+  assert.match(md, /median PR cycle time: \*\*30h\*\* \(↓6h\) \(open → merged\)/); // faster
+  assert.match(md, /median time to first review: \*\*3h\*\* \(↑1h\)/); // slower
+  assert.match(md, /\*\*40\*\* commits \(↑10\)/);
 });
 
 test('renderStandup adds a per-person stat line only with statsPerPerson', () => {

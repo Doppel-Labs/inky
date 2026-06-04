@@ -226,6 +226,25 @@ test('buildStandup adds the status-vs-plan block when roadmap is enabled', async
   assert.match(res.markdown, /\*\*Checkout v2\*\* — 8\/10 \(80%\) · 📈 advanced \(\+1 this period\)/);
 });
 
+test('buildStandup adds week-over-week trends via a second prior-window collect', async () => {
+  const cur = activityFor(weekly); // 1 merged PR, 1 commit
+  const prevActivity: OrgActivity = { org: 'Acme', window: weekly, people: [] }; // a quiet prior week
+  const calls: CollectOptions[] = [];
+  const collect = async (_c: Config, _s: Secrets, o: CollectOptions): Promise<OrgActivity> => {
+    calls.push(o);
+    return calls.length === 1 ? cur : prevActivity;
+  };
+  const res = await buildStandup(cfg({ stats: 'on', trends: 'on' }), secrets, {
+    windowHours: 168,
+    now: new Date('2026-05-30T00:00:00.000Z'),
+    deps: { collect, resolveLlm: fakeLlm(emitCreate({ projectSummary: 's', people: [] })) },
+  });
+  assert.equal(calls.length, 2); // current window + the prior window
+  assert.equal(calls[1]!.now?.toISOString(), weekly.since); // prior window ends where this one starts
+  assert.match(res.markdown, /trend vs previous period/);
+  assert.match(res.markdown, /\*\*1\*\* PRs merged \(↑1\)/); // 1 this week vs 0 last week
+});
+
 test('buildStandup uses the declared (ROADMAP.md) source when configured', async () => {
   // Real reconcileDeclared (pure); only collect/collectDeclaredRoadmap/llm are faked.
   const res = await buildStandup(cfg({ roadmap: { enabled: true, source: 'roadmap-md' } }), secrets, {

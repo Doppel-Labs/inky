@@ -43,6 +43,8 @@ Report:
   --stats             Force the team stats panel on (default: auto on weekly+)
   --no-stats          Force the team stats panel off
   --stats-per-person  Add a per-person stat line under each name
+  --trends            Force week-over-week trend arrows on the stats panel
+  --no-trends         Omit the trend arrows
   --roadmap           Add the status-vs-plan block (from GitHub milestones)
   --no-roadmap        Omit the status-vs-plan block
   --format <style>    Per-person style: prose (default) | bullets
@@ -98,6 +100,8 @@ interface ParsedArgs {
   /** undefined = use config (auto); true/false = forced by --stats/--no-stats. */
   stats?: boolean;
   statsPerPerson?: boolean;
+  /** undefined = config.trends (when stats show); true/false = forced by --trends/--no-trends. */
+  trends?: boolean;
   /** undefined = config.roadmap.enabled; true/false = forced by --roadmap/--no-roadmap. */
   roadmap?: boolean;
   format?: Format;
@@ -127,6 +131,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   let provider: Provider | undefined;
   let stats: boolean | undefined;
   let statsPerPerson: boolean | undefined;
+  let trends: boolean | undefined;
   let roadmap: boolean | undefined;
   let format: Format | undefined;
   for (let i = 0; i < rest.length; i++) {
@@ -158,6 +163,10 @@ function parseArgs(argv: string[]): ParsedArgs {
       stats = false;
     } else if (rest[i] === '--stats-per-person') {
       statsPerPerson = true;
+    } else if (rest[i] === '--trends') {
+      trends = true;
+    } else if (rest[i] === '--no-trends') {
+      trends = false;
     } else if (rest[i] === '--roadmap') {
       roadmap = true;
     } else if (rest[i] === '--no-roadmap') {
@@ -200,13 +209,14 @@ function parseArgs(argv: string[]): ParsedArgs {
     provider,
     stats,
     statsPerPerson,
+    trends,
     roadmap,
     format,
   };
 }
 
 async function main(): Promise<void> {
-  const { command, configPath, dryRun, once, mechanical, windowHours, windowEnd, model, provider, stats, statsPerPerson, roadmap, format } =
+  const { command, configPath, dryRun, once, mechanical, windowHours, windowEnd, model, provider, stats, statsPerPerson, trends, roadmap, format } =
     parseArgs(process.argv.slice(2));
   let config = loadConfig(configPath);
   // CLI overrides (for quick A/B). Switching provider drops the configured
@@ -232,6 +242,7 @@ async function main(): Promise<void> {
         format,
         stats,
         statsPerPerson,
+        trends,
         roadmap,
         log: (m) => console.error(m),
       });
