@@ -23,7 +23,7 @@ Now that it's public, lower the friction to discover, trust, and run it:
 - **CI:** a GitHub Actions workflow running the 111 tests + typecheck on PRs (a green badge builds trust).
 - **`CONTRIBUTING.md`**, issue/PR templates, a one-command quickstart.
 - **Distribution:** submit to `awesome-selfhosted` / `awesome-discord`, a `r/selfhosted` + Product Hunt post, a short "why" blog.
-- **Hygiene:** rotate the local `.env` API keys (never committed, but cheap insurance pre-announcement).
+- **Keys:** nothing to rotate — `.env` was gitignored the whole time and never committed (verified), so the public repo exposes no secrets. Only rotate on a *known* exposure (a screenshot/paste). The fine-grained PAT already auto-expires (~90 days).
 
 *Why first:* in open-core, OSS adoption **is** the go-to-market for the paid tier. Highest leverage per hour.
 
@@ -91,7 +91,7 @@ dashboard + billing.
 
 ## Concrete next steps (prioritized)
 1. **Adoption polish:** README hero + logo, a demo GIF/screenshot, GitHub Actions CI, `CONTRIBUTING.md`.
-2. **Rotate** the local `.env` keys.
+2. *(Keys: no rotation needed — `.env` was never committed; the PAT auto-expires.)*
 3. **GitHub App** (stepping stone — better self-host UX + Phase 6 foundation).
 4. **`reconcile()` → `ROADMAP.md`** declared roadmap (status-vs-plan for milestone-less teams).
 5. **Watch for hosted demand** → kick off Phase 6 with the dashboard + Postgres.
