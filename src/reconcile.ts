@@ -18,6 +18,7 @@ import type {
   Window,
 } from './types.js';
 import type { MilestoneRecord } from './github.js';
+import type { DeclaredGoal } from './roadmap-md.js';
 
 const DAY_MS = 86_400_000;
 
@@ -46,6 +47,34 @@ const MOVEMENT_RANK: Record<ItemMovement, number> = {
   'in-progress': 3,
   untouched: 4,
 };
+
+/** Short mechanical at-risk note (shared by both sources). */
+function dueNote(dueMs: number, nowMs: number, openCount: number): string {
+  const days = Math.round((dueMs - nowMs) / DAY_MS);
+  return days < 0
+    ? `${-days} day${days === -1 ? '' : 's'} overdue`
+    : `due in ${days} day${days === 1 ? '' : 's'} · ${openCount} open`;
+}
+
+/** Sort: at-risk first (most actionable), then by salience, then most-complete first. */
+function compareItems(a: RoadmapItemStatus, b: RoadmapItemStatus): number {
+  if (a.atRisk !== b.atRisk) return a.atRisk ? -1 : 1;
+  if (MOVEMENT_RANK[a.movement] !== MOVEMENT_RANK[b.movement]) {
+    return MOVEMENT_RANK[a.movement] - MOVEMENT_RANK[b.movement];
+  }
+  return b.progress - a.progress;
+}
+
+/** Roll up the per-item statuses into the headline totals. */
+function tally(items: RoadmapItemStatus[]): RoadmapStatus['totals'] {
+  return {
+    tracked: items.length,
+    completed: items.filter((i) => i.movement === 'completed').length,
+    advanced: items.filter((i) => i.movement === 'advanced').length,
+    stalled: items.filter((i) => i.movement === 'stalled').length,
+    atRisk: items.filter((i) => i.atRisk).length,
+  };
+}
 
 function toRoadmapItem(m: MilestoneRecord): RoadmapItem {
   return {
@@ -105,36 +134,65 @@ export function reconcile(input: ReconcileInput, opts: ReconcileOptions): Roadma
     else if (atRisk) movement = 'stalled';
     else movement = 'untouched';
 
-    let note: string | undefined;
-    if (atRisk && dueMs !== null) {
-      const days = Math.round((dueMs - now) / DAY_MS);
-      note =
-        days < 0
-          ? `${-days} day${days === -1 ? '' : 's'} overdue`
-          : `due in ${days} day${days === 1 ? '' : 's'} · ${m.openIssues} open`;
-    }
-
+    const note = atRisk && dueMs !== null ? dueNote(dueMs, now, m.openIssues) : undefined;
     items.push({ item: toRoadmapItem(m), movement, closedThisWindow, progress, atRisk, note });
   }
 
-  // At-risk first (most actionable), then by salience, then most-complete first.
-  items.sort((a, b) => {
-    if (a.atRisk !== b.atRisk) return a.atRisk ? -1 : 1;
-    if (MOVEMENT_RANK[a.movement] !== MOVEMENT_RANK[b.movement]) {
-      return MOVEMENT_RANK[a.movement] - MOVEMENT_RANK[b.movement];
-    }
-    return b.progress - a.progress;
+  items.sort(compareItems);
+  return { items, unplanned: { closedIssues: unplannedClosed }, totals: tally(items) };
+}
+
+export interface ReconcileDeclaredInput {
+  /** Goals parsed from ROADMAP.md. */
+  goals: DeclaredGoal[];
+  /** URL of the ROADMAP.md file, applied as each goal's link (optional). */
+  sourceUrl?: string;
+}
+
+/**
+ * Reconcile a declared roadmap (ROADMAP.md goals) into the same `RoadmapStatus`
+ * the milestone path produces, so render/summarize are unchanged. A declared file
+ * carries no in-window issue signal, so movement comes from progress alone
+ * (completed / in-progress / untouched, or stalled when at-risk) and
+ * `closedThisWindow` is always 0 — honest about what a static checklist can show.
+ */
+export function reconcileDeclared(input: ReconcileDeclaredInput, opts: ReconcileOptions): RoadmapStatus {
+  const filter = opts.milestoneFilter?.toLowerCase();
+  const now = opts.now.getTime();
+  const riskMs = opts.atRiskDays * DAY_MS;
+
+  const items: RoadmapItemStatus[] = [];
+  input.goals.forEach((g, i) => {
+    if (filter && !g.title.toLowerCase().includes(filter)) return;
+    const total = g.openCount + g.closedCount;
+    if (total === 0) return; // no tasks → nothing to track
+
+    const progress = g.closedCount / total;
+    const done = g.openCount === 0;
+    const dueMs = g.dueOn ? new Date(g.dueOn).getTime() : null;
+    const atRisk = dueMs !== null && g.openCount > 0 && progress < 1 && dueMs <= now + riskMs;
+
+    let movement: ItemMovement;
+    if (done) movement = 'completed';
+    else if (atRisk) movement = 'stalled';
+    else if (g.closedCount > 0) movement = 'in-progress';
+    else movement = 'untouched';
+
+    const note = atRisk && dueMs !== null ? dueNote(dueMs, now, g.openCount) : undefined;
+    const item: RoadmapItem = {
+      id: `goal:${i}`,
+      kind: 'goal',
+      title: g.title,
+      url: input.sourceUrl ?? '',
+      repo: '',
+      dueOn: g.dueOn,
+      openCount: g.openCount,
+      closedCount: g.closedCount,
+      state: done ? 'closed' : 'open',
+    };
+    items.push({ item, movement, closedThisWindow: 0, progress, atRisk, note });
   });
 
-  return {
-    items,
-    unplanned: { closedIssues: unplannedClosed },
-    totals: {
-      tracked: items.length,
-      completed: items.filter((i) => i.movement === 'completed').length,
-      advanced: items.filter((i) => i.movement === 'advanced').length,
-      stalled: items.filter((i) => i.movement === 'stalled').length,
-      atRisk: items.filter((i) => i.atRisk).length,
-    },
-  };
+  items.sort(compareItems);
+  return { items, unplanned: { closedIssues: 0 }, totals: tally(items) };
 }

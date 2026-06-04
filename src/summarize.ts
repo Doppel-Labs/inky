@@ -159,7 +159,7 @@ const EMIT_TOOL: Tool = {
         description:
           'OPTIONAL. Only when the digest has a "Roadmap status" block: 1–3 sentences on ' +
           'where the project stands vs the plan (advanced / stalled / at risk), grounded ' +
-          'strictly in the listed milestones and figures. Omit if no roadmap figures are given.',
+          'strictly in the listed roadmap items and figures. Omit if no roadmap figures are given.',
       },
     },
     required: ['projectSummary', 'people'],
@@ -396,10 +396,10 @@ function roadmapDigestLines(roadmap: RoadmapStatus): string[] {
     const bits = [`${m.closedCount}/${m.openCount + m.closedCount} closed (${pct}%)`, it.movement];
     if (it.closedThisWindow) bits.push(`+${it.closedThisWindow} closed this window`);
     if (it.atRisk) bits.push(`AT RISK${it.note ? ` — ${it.note}` : ''}`);
-    lines.push(`- ${m.title} (${m.repo}): ${bits.join(', ')}`);
+    lines.push(`- ${m.title}${m.repo ? ` (${m.repo})` : ''}: ${bits.join(', ')}`);
   }
   if (roadmap.unplanned.closedIssues) {
-    lines.push(`- ${roadmap.unplanned.closedIssues} issue(s) closed outside any tracked milestone`);
+    lines.push(`- ${roadmap.unplanned.closedIssues} issue(s) closed outside any tracked roadmap item`);
   }
   const tt = roadmap.totals;
   lines.push(

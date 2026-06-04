@@ -153,25 +153,47 @@ over a pre-built digest, so a small model holds up — defaults favor cost. Run
 ### Status vs plan (roadmap)
 
 Inky can tie the window's activity to your **roadmap** and add a **📍 Status vs
-plan** block — what advanced, what's stalled, what's at risk. The MVP reads
-**GitHub Milestones** (no extra setup or auth — the milestone's open/closed counts
-and due date give progress and "on track" for free):
+plan** block — what advanced, what's stalled, what's at risk. There are two
+sources; pick one with `source`:
+
+**`github-milestones`** (default, no extra setup — the milestone's open/closed
+counts and due date give progress and "on track" for free):
 
 ```jsonc
 "roadmap": {
   "enabled": true,
   "source": "github-milestones",
-  "milestoneFilter": "",   // optional: only track milestones whose title contains this
-  "atRiskDays": 7          // flag a milestone at-risk when due within N days (or past)
+  "milestoneFilter": "",   // optional: only track items whose title contains this
+  "atRiskDays": 7          // flag an item at-risk when due within N days (or past)
 }
 ```
 
+**`roadmap-md`** — for teams that don't use Milestones: a checklist `ROADMAP.md`
+in your repo, where `##` headings are goals and `- [ ]` / `- [x]` tasks give
+progress. Add `(due: YYYY-MM-DD)` to a heading to track a deadline:
+
+```jsonc
+"roadmap": {
+  "enabled": true,
+  "source": "roadmap-md",
+  "path": "ROADMAP.md",    // file location (default)
+  "repo": "web",           // repo holding it (default: the first configured repo)
+  "atRiskDays": 7
+}
+```
+```markdown
+## Q3 Launch (due: 2026-09-01)
+- [x] Auth
+- [ ] Dashboard
+```
+
 Off by default; enable in config or force per run with `--roadmap` / `--no-roadmap`.
-Each tracked milestone shows progress, movement (advanced / stalled / completed /
-…), and an ⚠️ at-risk note from its due date — all computed mechanically, with a
-short grounded narrative written from those figures. Teams that don't use
-milestones simply see no block (a config/`ROADMAP.md`-declared roadmap is a planned
-fast-follow). See [`docs/planning/phase5-reconcile-design.md`](docs/planning/phase5-reconcile-design.md).
+Each tracked item shows progress, movement (advanced / stalled / completed / …),
+and an ⚠️ at-risk note from its due date — all computed mechanically, with a short
+grounded narrative written from those figures. Teams with neither a milestone nor a
+`ROADMAP.md` simply see no block. (A static checklist carries no in-window signal, so
+`roadmap-md` items show progress and at-risk, but not "advanced this period.") See
+[`docs/planning/phase5-reconcile-design.md`](docs/planning/phase5-reconcile-design.md).
 
 ### Identity aliases
 

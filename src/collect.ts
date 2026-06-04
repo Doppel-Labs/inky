@@ -14,12 +14,14 @@ import {
   fetchIssues,
   fetchMilestones,
   fetchPullRequests,
+  fetchRepoFile,
   fetchReviews,
   filterStaleRepos,
   listOrgRepos,
   type MilestoneRecord,
 } from './github.js';
 import { resolveOctokit } from './github-auth.js';
+import { parseRoadmapMarkdown, type DeclaredGoal } from './roadmap-md.js';
 import type {
   CommitActivity,
   IssueActivity,
@@ -168,6 +170,33 @@ export async function collectRoadmap(
     }
   }
   return all;
+}
+
+/**
+ * Fetch + parse a declared roadmap (ROADMAP.md) for the `roadmap-md` source.
+ * Reads `config.roadmap.path` from `config.roadmap.repo` (or the first configured
+ * repo). Non-fatal: a missing repo/file logs and returns no goals.
+ */
+export async function collectDeclaredRoadmap(
+  config: Config,
+  secrets: Secrets,
+  opts: { log?: (msg: string) => void } = {},
+): Promise<{ goals: DeclaredGoal[]; sourceUrl: string }> {
+  const log = opts.log ?? ((m: string) => process.stderr.write(m + '\n'));
+  const repo = config.roadmap.repo ?? config.repos[0];
+  if (!repo) {
+    log('inky: roadmap source "roadmap-md" needs a repo — set roadmap.repo (or list repos[]); skipping.');
+    return { goals: [], sourceUrl: '' };
+  }
+  const octokit = await resolveOctokit(config, secrets, log);
+  const file = await fetchRepoFile(octokit, config.org, repo, config.roadmap.path);
+  if (!file) {
+    log(`inky: no ${config.roadmap.path} in ${config.org}/${repo}; skipping status vs plan.`);
+    return { goals: [], sourceUrl: '' };
+  }
+  const goals = parseRoadmapMarkdown(file.content);
+  log(`inky: parsed ${goals.length} goal(s) from ${repo}/${config.roadmap.path}`);
+  return { goals, sourceUrl: file.url };
 }
 
 /** GitHub bot accounts have logins suffixed with `[bot]` (e.g. `dependabot[bot]`). */

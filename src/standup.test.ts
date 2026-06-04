@@ -226,6 +226,26 @@ test('buildStandup adds the status-vs-plan block when roadmap is enabled', async
   assert.match(res.markdown, /\*\*Checkout v2\*\* — 8\/10 \(80%\) · 📈 advanced \(\+1 this period\)/);
 });
 
+test('buildStandup uses the declared (ROADMAP.md) source when configured', async () => {
+  // Real reconcileDeclared (pure); only collect/collectDeclaredRoadmap/llm are faked.
+  const res = await buildStandup(cfg({ roadmap: { enabled: true, source: 'roadmap-md' } }), secrets, {
+    now: new Date('2026-05-30T00:00:00.000Z'),
+    deps: {
+      collect: fakeCollect(activityFor(weekly)),
+      collectDeclaredRoadmap: async () => ({
+        goals: [{ title: 'Q3 Launch', openCount: 1, closedCount: 3 }],
+        sourceUrl: 'https://gh/web/blob/main/ROADMAP.md',
+      }),
+      resolveLlm: fakeLlm(
+        emitCreate({ projectSummary: 's', people: [], statusVsPlan: 'Q3 Launch is on track.' }),
+      ),
+    },
+  });
+  assert.match(res.markdown, /## 📍 Status vs plan/);
+  assert.match(res.markdown, /Q3 Launch is on track\./);
+  assert.match(res.markdown, /\*\*Q3 Launch\*\* — 3\/4 \(75%\) · 🔧 in progress/);
+});
+
 test('buildStandup skips roadmap when disabled (default)', async () => {
   let called = false;
   const res = await buildStandup(cfg(), secrets, {

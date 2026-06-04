@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { reconcile, type ReconcileOptions } from './reconcile.js';
+import { reconcile, reconcileDeclared, type ReconcileOptions } from './reconcile.js';
 import type { MilestoneRecord } from './github.js';
+import type { DeclaredGoal } from './roadmap-md.js';
 import type { IssueActivity, Window } from './types.js';
 
 const now = new Date('2026-06-03T00:00:00.000Z');
@@ -141,4 +142,58 @@ test('totals roll up movements and at-risk count', () => {
   assert.equal(r.totals.completed, 1);
   assert.equal(r.totals.stalled, 1);
   assert.equal(r.totals.atRisk, 1);
+});
+
+// ── reconcileDeclared (ROADMAP.md source) ──
+
+function goal(over: Partial<DeclaredGoal> = {}): DeclaredGoal {
+  return { title: 'Goal', openCount: 1, closedCount: 1, ...over };
+}
+
+function runDeclared(goals: DeclaredGoal[], opts: Partial<ReconcileOptions> = {}, sourceUrl?: string) {
+  return reconcileDeclared({ goals, sourceUrl }, { atRiskDays: 7, now, ...opts });
+}
+
+test('declared: all tasks checked → completed, progress 1, state closed', () => {
+  const r = runDeclared([goal({ title: 'Launch', openCount: 0, closedCount: 4 })]);
+  assert.equal(r.items[0]!.movement, 'completed');
+  assert.equal(r.items[0]!.progress, 1);
+  assert.equal(r.items[0]!.item.state, 'closed');
+  assert.equal(r.items[0]!.item.kind, 'goal');
+});
+
+test('declared: some tasks checked, no due → in-progress', () => {
+  const r = runDeclared([goal({ openCount: 3, closedCount: 1 })]);
+  assert.equal(r.items[0]!.movement, 'in-progress');
+  assert.equal(r.items[0]!.closedThisWindow, 0); // a static file carries no window signal
+});
+
+test('declared: no tasks checked, no due → untouched', () => {
+  const r = runDeclared([goal({ openCount: 2, closedCount: 0 })]);
+  assert.equal(r.items[0]!.movement, 'untouched');
+});
+
+test('declared: open work + a near due date → at-risk + stalled, with a note', () => {
+  const r = runDeclared([goal({ openCount: 2, closedCount: 1, dueOn: '2026-06-05' })]);
+  assert.equal(r.items[0]!.atRisk, true);
+  assert.equal(r.items[0]!.movement, 'stalled');
+  assert.match(r.items[0]!.note!, /due in 2 days · 2 open/);
+});
+
+test('declared: a goal with no tasks is dropped', () => {
+  const r = runDeclared([goal({ openCount: 0, closedCount: 0 })]);
+  assert.equal(r.items.length, 0);
+  assert.equal(r.totals.tracked, 0);
+});
+
+test('declared: milestoneFilter matches goal titles', () => {
+  const r = runDeclared([goal({ title: 'Mobile' }), goal({ title: 'Web' })], { milestoneFilter: 'web' });
+  assert.equal(r.items.length, 1);
+  assert.equal(r.items[0]!.item.title, 'Web');
+});
+
+test('declared: sourceUrl is applied as each item link; unplanned is always 0', () => {
+  const r = runDeclared([goal()], {}, 'https://gh/web/blob/main/ROADMAP.md');
+  assert.equal(r.items[0]!.item.url, 'https://gh/web/blob/main/ROADMAP.md');
+  assert.equal(r.unplanned.closedIssues, 0);
 });

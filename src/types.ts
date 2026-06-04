@@ -194,17 +194,22 @@ export interface PersonStandup {
 
 // ── Phase 5: roadmap reconciliation (status vs plan) ──
 
-/** A roadmap item being tracked. MVP: a GitHub milestone. Later: project/epic/declared goal. */
+/** A roadmap item being tracked: a GitHub milestone, or a declared goal from ROADMAP.md. */
 export interface RoadmapItem {
-  /** Stable id, e.g. "milestone:web#3". */
+  /** Stable id, e.g. "milestone:web#3" or "goal:2". */
   id: string;
-  kind: 'milestone';
+  kind: 'milestone' | 'goal';
   title: string;
+  /** Link to the item (milestone URL, or the ROADMAP.md file); '' if none. */
   url: string;
+  /** Owning repo for a milestone; '' for a declared goal. */
   repo: string;
   /** Due date if set (ISO-8601). */
   dueOn?: string;
-  /** Open / closed sub-issue counts (straight off the milestone — gives progress for free). */
+  /**
+   * Open / closed sub-item counts — milestone open/closed issues, or a declared
+   * goal's unchecked/checked tasks. Gives progress for free either way.
+   */
   openCount: number;
   closedCount: number;
   state: 'open' | 'closed';

@@ -13,10 +13,18 @@ import type { MilestoneRecord } from './github.js';
 import type { OrgActivity, RoadmapStatus, Window } from './types.js';
 import {
   collect as collectImpl,
+  collectDeclaredRoadmap as collectDeclaredRoadmapImpl,
   collectRoadmap as collectRoadmapImpl,
   type CollectOptions,
 } from './collect.js';
-import { reconcile as reconcileImpl, type ReconcileInput, type ReconcileOptions } from './reconcile.js';
+import {
+  reconcile as reconcileImpl,
+  reconcileDeclared as reconcileDeclaredImpl,
+  type ReconcileDeclaredInput,
+  type ReconcileInput,
+  type ReconcileOptions,
+} from './reconcile.js';
+import type { DeclaredGoal } from './roadmap-md.js';
 import { resolveLlm as resolveLlmImpl, PROVIDER_ENV, type ResolvedLlm } from './llm.js';
 
 export type StandupFormat = 'prose' | 'bullets';
@@ -51,6 +59,12 @@ export interface BuildStandupDeps {
     opts: { log?: (msg: string) => void },
   ) => Promise<MilestoneRecord[]>;
   reconcile?: (input: ReconcileInput, opts: ReconcileOptions) => RoadmapStatus;
+  collectDeclaredRoadmap?: (
+    config: Config,
+    secrets: Secrets,
+    opts: { log?: (msg: string) => void },
+  ) => Promise<{ goals: DeclaredGoal[]; sourceUrl: string }>;
+  reconcileDeclared?: (input: ReconcileDeclaredInput, opts: ReconcileOptions) => RoadmapStatus;
 }
 
 export interface BuiltStandup {
@@ -86,6 +100,8 @@ export async function buildStandup(
   const resolveLlm = opts.deps?.resolveLlm ?? resolveLlmImpl;
   const collectRoadmap = opts.deps?.collectRoadmap ?? collectRoadmapImpl;
   const reconcile = opts.deps?.reconcile ?? reconcileImpl;
+  const collectDeclaredRoadmap = opts.deps?.collectDeclaredRoadmap ?? collectDeclaredRoadmapImpl;
+  const reconcileDeclared = opts.deps?.reconcileDeclared ?? reconcileDeclaredImpl;
   const roadmapEnabled = opts.roadmap ?? config.roadmap.enabled;
 
   const activity = await collect(config, secrets, {
@@ -113,24 +129,26 @@ export async function buildStandup(
     // A fetch/reconcile failure is non-fatal: log and produce the standup without it.
     let roadmap: RoadmapStatus | undefined;
     if (roadmapEnabled) {
+      const reconcileOpts: ReconcileOptions = {
+        milestoneFilter: config.roadmap.milestoneFilter,
+        atRiskDays: config.roadmap.atRiskDays,
+        now: opts.now ?? new Date(),
+      };
       try {
-        const milestones = await collectRoadmap(config, secrets, {
-          log,
-          now: opts.now,
-          windowSince: activity.window.since,
-        });
-        roadmap = reconcile(
-          {
-            milestones,
-            issues: activity.people.flatMap((p) => p.issues),
-            window: activity.window,
-          },
-          {
-            milestoneFilter: config.roadmap.milestoneFilter,
-            atRiskDays: config.roadmap.atRiskDays,
-            now: opts.now ?? new Date(),
-          },
-        );
+        if (config.roadmap.source === 'roadmap-md') {
+          const { goals, sourceUrl } = await collectDeclaredRoadmap(config, secrets, { log });
+          roadmap = reconcileDeclared({ goals, sourceUrl }, reconcileOpts);
+        } else {
+          const milestones = await collectRoadmap(config, secrets, {
+            log,
+            now: opts.now,
+            windowSince: activity.window.since,
+          });
+          roadmap = reconcile(
+            { milestones, issues: activity.people.flatMap((p) => p.issues), window: activity.window },
+            reconcileOpts,
+          );
+        }
         log(`standup: roadmap reconciled — ${roadmap.items.length} item(s) tracked.`);
       } catch (err) {
         log(`standup: roadmap reconcile failed (${(err as Error).message}); skipping status vs plan.`);

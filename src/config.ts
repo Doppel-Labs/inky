@@ -149,18 +149,26 @@ export const ConfigSchema = z.object({
   format: z.enum(['prose', 'bullets']).default('bullets'),
   /**
    * Roadmap reconciliation (Phase 5): tie activity to the plan and add a
-   * "status vs plan" block. MVP source = GitHub Milestones (no new auth). Off by
-   * default; CLI --roadmap/--no-roadmap override.
+   * "status vs plan" block. Off by default; CLI --roadmap/--no-roadmap override.
+   * Two sources:
+   *   - "github-milestones" (default, no new setup): open/closed issue counts and
+   *     due dates come straight off your milestones.
+   *   - "roadmap-md": parse a checklist ROADMAP.md (## headings = goals, `- [ ]`/
+   *     `- [x]` = tasks → progress). For teams that don't use Milestones.
    */
   roadmap: z
     .object({
       enabled: z.boolean().default(false),
-      /** Where "the plan" lives. MVP: github-milestones (future: declared/projects/linear/notion). */
-      source: z.enum(['github-milestones']).default('github-milestones'),
-      /** Track only milestones whose title contains this (case-insensitive). Omit = all. */
+      /** Where "the plan" lives (future: projects/linear/notion). */
+      source: z.enum(['github-milestones', 'roadmap-md']).default('github-milestones'),
+      /** Track only items whose title contains this (case-insensitive). Omit = all. */
       milestoneFilter: z.string().optional(),
-      /** Flag a milestone at-risk when its due date is within this many days (or past). */
+      /** Flag an item at-risk when its due date is within this many days (or past). */
       atRiskDays: z.number().int().positive().default(7),
+      /** roadmap-md: path to the checklist file in the repo. Default "ROADMAP.md". */
+      path: z.string().default('ROADMAP.md'),
+      /** roadmap-md: repo holding the file. Omit = the first configured repo. */
+      repo: z.string().optional(),
     })
     .default({}),
 });

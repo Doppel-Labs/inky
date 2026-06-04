@@ -29,6 +29,36 @@ export function makeOctokit(token: string): Octokit {
   return new Octokit({ auth: token, userAgent: USER_AGENT });
 }
 
+/** A single file fetched from a repo. */
+export interface RepoFile {
+  /** UTF-8 decoded file contents. */
+  content: string;
+  /** Browser URL for the file (for linking). */
+  url: string;
+}
+
+/**
+ * Fetch one file from a repo's default branch (for the `roadmap-md` source).
+ * Returns null when the path doesn't exist or isn't a regular file.
+ */
+export async function fetchRepoFile(
+  octokit: Octokit,
+  org: string,
+  repo: string,
+  path: string,
+): Promise<RepoFile | null> {
+  try {
+    const res = await octokit.rest.repos.getContent({ owner: org, repo, path });
+    const data = res.data;
+    if (Array.isArray(data) || data.type !== 'file' || typeof data.content !== 'string') return null;
+    const content = Buffer.from(data.content, data.encoding === 'base64' ? 'base64' : 'utf8').toString('utf8');
+    return { content, url: data.html_url ?? '' };
+  } catch (err) {
+    if ((err as { status?: number }).status === 404) return null;
+    throw err;
+  }
+}
+
 /** Compute a window ending now, spanning `hours` back. */
 export function computeWindow(hours: number, now: Date): Window {
   const until = now;

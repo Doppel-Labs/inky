@@ -35,9 +35,12 @@ Recommended MVP tracker = **GitHub Milestones**, because:
   force GraphQL; defer it.)
 
 **Honest caveat (a product decision — see §9):** this assumes teams actually use Milestones.
-Many don't. A fast-follow is a **config-declared roadmap** (a list of goals in
-`inky.config.json` or a `ROADMAP.md`) so the feature works without GitHub Milestones. The
-adapter seam below makes that additive.
+Many don't. **Shipped (2026-06-04):** a second source, **`roadmap-md`** — a checklist
+`ROADMAP.md` (`##` headings = goals, `- [ ]`/`- [x]` tasks = progress, `(due: …)` =
+deadline), parsed by `src/roadmap-md.ts` and reconciled by `reconcileDeclared()` into the
+same `RoadmapStatus`. Additive via the `source` enum, exactly as the seam below intended. A
+static file carries no in-window signal, so declared items report progress + at-risk but not
+"advanced this period" (`closedThisWindow` is always 0).
 
 ## 3. Data model (`types.ts`)
 
