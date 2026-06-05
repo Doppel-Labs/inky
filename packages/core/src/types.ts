@@ -172,6 +172,13 @@ export interface TeamStats extends OrgTotals {
   medianTimeToFirstReviewHours: number | null;
   /** Merged (non-promotion) PRs bucketed by lines changed. */
   prSizes: PrSizeBuckets;
+  /**
+   * Commit counts per 24h slice across the window, oldest first — the shape of
+   * the week's activity, rendered as an in-Discord sparkline. One bucket per day
+   * the window spans (e.g. 7 for a weekly standup), from data Inky already has
+   * (commit timestamps); no history store needed.
+   */
+  dailyCommits: number[];
 }
 
 /** A person's bullets for a single repository, so work is grouped by repo. */

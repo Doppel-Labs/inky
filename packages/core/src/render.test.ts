@@ -185,6 +185,7 @@ function standupWithStats(): Standup {
       medianPrCycleHours: 30,
       medianTimeToFirstReviewHours: 3,
       prSizes: { xs: 3, s: 5, m: 2, l: 1, xl: 1 },
+      dailyCommits: [4, 8, 6, 10, 5, 4, 3],
     },
     people: [
       {
@@ -219,6 +220,8 @@ test('renderStandup shows the team stats panel only when enabled', () => {
   // 12 sized PRs, 8 small (xs+s) → 67%, with a distribution sparkline
   assert.match(withStats, /PR size `▅█▄▂▂` \(XS→XL\): \*\*67%\*\* small \(<100 lines\) — XS 3 · S 5 · M 2 · L 1 · XL 1/);
   assert.match(withStats, /\*\*40\*\* commits \(\*\*12\*\* unshipped\)/);
+  // daily-activity sparkline: [4,8,6,10,5,4,3] scaled to max 10
+  assert.match(withStats, /commits\/day `▄▇▅█▅▄▃` _\(oldest → newest\)_/);
   assert.match(withStats, /\*\*2\*\* reverts \(\*\*5\.0%\*\* of commits\)/);
   assert.match(withStats, /size, not score/);
 });

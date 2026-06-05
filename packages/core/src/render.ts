@@ -266,6 +266,11 @@ function teamStatsPanel(
     `- **${t.commits}** commits${countDelta(t.commits, prev?.commits)}` +
       (t.unshippedCommits ? ` (**${t.unshippedCommits}** unshipped)` : ''),
   );
+  // Activity shape over the window — only meaningful for multi-day windows with
+  // commits (a daily standup is a single bucket).
+  if (t.dailyCommits.length >= 2 && t.commits > 0) {
+    lines.push(`- commits/day \`${sparkline(t.dailyCommits)}\` _(oldest → newest)_`);
+  }
   if (t.commits) {
     lines.push(`- **${t.reverts}** reverts (**${(t.revertRate * 100).toFixed(1)}%** of commits)`);
   }

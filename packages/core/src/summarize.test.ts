@@ -235,6 +235,31 @@ test('computeTeamStats derives revert rate and median PR cycle time', () => {
   assert.equal(s.medianTimeToFirstReviewHours, 6); // only PR #1 (opened in-window)
   // both merged PRs are 1 line (additions 1 / deletions 0) → xs; the open PR isn't sized
   assert.deepEqual(s.prSizes, { xs: 2, s: 0, m: 0, l: 0, xl: 0 });
+  assert.deepEqual(s.dailyCommits, [4]); // 1-day window → one bucket with all 4 commits
+});
+
+test('computeTeamStats buckets commits into per-day slices across the window (the activity sparkline)', () => {
+  const wk = { since: '2026-05-23T00:00:00.000Z', until: '2026-05-30T00:00:00.000Z' }; // 7 days
+  const c = (sha: string, authoredAt: string) =>
+    commit({ sha, authoredAt, message: 'feat: x' });
+  const activity: OrgActivity = {
+    org: 'Acme',
+    window: wk,
+    people: [
+      person('a', {
+        commits: [
+          c('1', '2026-05-23T01:00:00.000Z'), // day 0
+          c('2', '2026-05-23T20:00:00.000Z'), // day 0
+          c('3', '2026-05-25T05:00:00.000Z'), // day 2
+          c('4', '2026-05-29T23:00:00.000Z'), // day 6
+        ],
+        totals: { ...emptyTotals(), commits: 4, repos: 1 },
+      }),
+    ],
+  };
+  const s = computeTeamStats(activity);
+  assert.equal(s.dailyCommits.length, 7);
+  assert.deepEqual(s.dailyCommits, [2, 0, 1, 0, 0, 0, 1]);
 });
 
 test('classifyPrSize buckets a PR by total lines changed', () => {

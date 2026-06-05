@@ -350,12 +350,30 @@ export function computeTeamStats(activity: OrgActivity): TeamStats {
     }
   }
 
+  // Commits per 24h slice across the window (oldest first), for the activity
+  // sparkline. Slice from `since` (not calendar days) so it's timezone-agnostic
+  // and matches the windowHours semantics.
+  const sinceMs = Date.parse(activity.window.since);
+  const dayMs = 86_400_000;
+  const dayCount = Math.max(1, Math.round((Date.parse(activity.window.until) - sinceMs) / dayMs));
+  const dailyCommits = new Array<number>(dayCount).fill(0);
+
   let reverts = 0;
   const cycleHours: number[] = [];
   const ttfrHours: number[] = [];
   const prSizes: PrSizeBuckets = { xs: 0, s: 0, m: 0, l: 0, xl: 0 };
   for (const p of activity.people) {
-    for (const c of p.commits) if (isRevertCommit(c.message)) reverts++;
+    for (const c of p.commits) {
+      if (isRevertCommit(c.message)) reverts++;
+      const slice = Math.floor((Date.parse(c.authoredAt) - sinceMs) / dayMs);
+      // Clamp the high end so a commit at exactly `until` (the exclusive window
+      // end) lands in the last day's bucket rather than being dropped — keeps the
+      // sparkline's total consistent with the commit count.
+      if (slice >= 0) {
+        const bucket = Math.min(slice, dayCount - 1);
+        dailyCommits[bucket] = (dailyCommits[bucket] ?? 0) + 1;
+      }
+    }
     for (const pr of p.pullRequests) {
       if (isPromotionPR(pr.title)) continue; // promotion/auto-merge PRs aren't real review/flow
       // Exclude promotion/auto-merge PRs (e.g. "Staging") — they merge instantly
@@ -384,6 +402,7 @@ export function computeTeamStats(activity: OrgActivity): TeamStats {
     medianPrCycleHours: median(cycleHours),
     medianTimeToFirstReviewHours: median(ttfrHours),
     prSizes,
+    dailyCommits,
   };
 }
 
