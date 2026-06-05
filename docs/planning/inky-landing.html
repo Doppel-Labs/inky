@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Inky — your team's standup, written for you</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0A1420; --surface:#121F30; --surface-2:#1A2C42;
+    --hairline:#23384F; --text:#EAF2F8; --muted:#8AA0B4; --faint:#5C7388;
+    --accent:#3DE0D2; --accent-deep:#1A8C8C; --accent-glow:rgba(61,224,210,.18);
+    --ok:#3DE0D2; --at-risk:#F2B45C; --untracked:#8AA0B4; --blocked:#E8806B;
+    --ink:#04181C; --maxw:1120px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg); color:var(--text); font-family:Inter,system-ui,sans-serif; line-height:1.6;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; overflow-x:hidden;
+    background-image:
+      radial-gradient(120% 70% at 50% 120%, rgba(61,224,210,.09), transparent 58%),
+      radial-gradient(100% 50% at 50% -8%, rgba(26,44,66,.5), transparent 70%);
+    background-attachment:fixed;
+  }
+  body::after{
+    content:""; position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.03;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .wrap{position:relative; z-index:1; max-width:var(--maxw); margin:0 auto; padding:0 28px}
+  .mono{font-family:"JetBrains Mono",monospace}
+
+  /* nav */
+  nav{position:sticky; top:0; z-index:50; backdrop-filter:blur(12px);
+    background:linear-gradient(180deg, rgba(10,20,32,.86), rgba(10,20,32,.5)); border-bottom:1px solid transparent}
+  nav.scrolled{border-bottom-color:var(--hairline)}
+  .navin{display:flex; align-items:center; justify-content:space-between; padding:16px 0; max-width:var(--maxw); margin:0 auto; padding-left:28px; padding-right:28px}
+  .brand{display:flex; align-items:center; gap:11px; font-family:Fraunces,serif; font-weight:600; font-size:20px; letter-spacing:-.01em}
+  .brand .oct{color:var(--accent)}
+  .navlinks{display:flex; gap:30px; align-items:center}
+  .navlinks a:not(.btn){color:var(--muted); text-decoration:none; font-size:14.5px; transition:color .2s}
+  .navlinks a:not(.btn):hover{color:var(--text)}
+  .btn{font-family:Inter; font-weight:600; font-size:14.5px; border:none; cursor:pointer; border-radius:12px;
+    padding:11px 18px; text-decoration:none; display:inline-flex; align-items:center; gap:8px;
+    transition:transform .18s ease, box-shadow .25s ease, background .2s, border-color .2s}
+  .btn-primary{background:var(--accent); color:var(--ink); box-shadow:0 6px 22px var(--accent-glow); font-weight:600}
+  .btn-primary:hover{transform:translateY(-1px); box-shadow:0 10px 34px rgba(61,224,210,.32)}
+  .btn-ghost{background:transparent; color:var(--text); border:1px solid var(--hairline)}
+  .btn-ghost:hover{border-color:var(--accent); color:var(--accent)}
+  .btn-lg{padding:14px 24px; font-size:15.5px; border-radius:13px}
+  .linkarrow{color:var(--muted); text-decoration:none; font-size:15px; display:inline-flex; align-items:center; gap:7px; transition:color .2s, gap .2s}
+  .linkarrow:hover{color:var(--accent); gap:11px}
+  @media(max-width:780px){.navlinks .hideable{display:none}}
+
+  /* generic section */
+  section{padding:104px 0; position:relative}
+  .eyebrow{font-family:"JetBrains Mono",monospace; font-size:12px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--accent); display:inline-flex; align-items:center; gap:10px; margin-bottom:20px}
+  .eyebrow.muted{color:var(--faint)}
+  .eyebrow .dot{width:6px; height:6px; border-radius:50%; background:var(--accent); box-shadow:0 0 10px var(--accent)}
+  h2{font-family:Fraunces,serif; font-weight:500; font-size:clamp(30px,4.2vw,46px); line-height:1.08; letter-spacing:-.02em}
+  h2 .em{font-style:italic}
+  .lead{color:var(--muted); font-size:18px; line-height:1.6; max-width:600px; margin-top:18px}
+  .center{text-align:center} .center .lead{margin-left:auto; margin-right:auto}
+  .em-u{font-style:italic; position:relative; white-space:nowrap}
+  .em-u::after{content:""; position:absolute; left:0; right:0; bottom:.02em; height:3px; border-radius:3px;
+    background:linear-gradient(90deg,var(--accent),var(--accent-deep)); box-shadow:0 0 14px var(--accent-glow)}
+
+  /* hero */
+  .hero{padding:96px 0 32px; text-align:center}
+  .hero h1{font-family:Fraunces,serif; font-weight:500; font-size:clamp(40px,6.2vw,66px); line-height:1.05;
+    letter-spacing:-.025em; max-width:14ch; margin:0 auto}
+  .hero .sub{color:var(--muted); font-size:18.5px; line-height:1.62; max-width:600px; margin:26px auto 0}
+  .hero .sub b{color:var(--text); font-weight:500}
+  .cta{display:flex; gap:16px; justify-content:center; align-items:center; margin-top:34px; flex-wrap:wrap}
+  .sources{display:flex; gap:22px; justify-content:center; align-items:center; flex-wrap:wrap; margin-top:40px;
+    color:var(--faint); font-size:13.5px; font-family:"JetBrains Mono",monospace}
+  .sources span{display:inline-flex; align-items:center; gap:8px}
+  .sources i{width:7px; height:7px; border-radius:2px; border:1px solid var(--faint); display:inline-block; transform:rotate(45deg)}
+  .sources .soon{color:var(--faint); opacity:.6}
+
+  /* framed product shot + card */
+  .frame{margin:60px auto 0; max-width:680px; border-radius:18px; padding:1px;
+    background:linear-gradient(180deg, var(--hairline), rgba(35,56,79,.2));
+    box-shadow:0 0 0 1px rgba(61,224,210,.08), 0 24px 70px -20px var(--accent-glow), 0 40px 120px -40px rgba(0,0,0,.8)}
+  .card{background:var(--surface); border-radius:17px; overflow:hidden; text-align:left}
+  .card-head{display:flex; align-items:center; justify-content:space-between; gap:16px; padding:20px 24px; border-bottom:1px solid var(--hairline)}
+  .card-title{display:flex; align-items:center; gap:12px; font-family:Fraunces,serif; font-weight:600; font-size:19px; letter-spacing:-.01em}
+  .card-title .oct{color:var(--accent); display:flex}
+  .card-time{font-family:"JetBrains Mono",monospace; font-size:12.5px; color:var(--muted)}
+  .card-body{padding:22px 24px 8px}
+  .narrative{color:var(--text); font-size:15.5px; line-height:1.62; margin-bottom:22px}
+  .narrative .m{font-family:"JetBrains Mono",monospace; font-size:13.5px; color:var(--accent); font-weight:500}
+  .seclabel{font-family:"JetBrains Mono",monospace; font-size:11.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--faint); margin-bottom:14px}
+  .rows{display:flex; flex-direction:column; gap:2px; margin-bottom:18px}
+  .row{display:grid; grid-template-columns:124px 1fr; gap:14px; align-items:baseline; padding:9px 10px; border-radius:9px; transition:background .2s}
+  .row:hover{background:var(--surface-2)}
+  .state{display:inline-flex; align-items:center; gap:9px; font-size:13.5px; font-weight:500}
+  .glyph{width:11px; height:11px; border-radius:50%; flex:none}
+  .g-ok{background:var(--ok); box-shadow:0 0 10px rgba(61,224,210,.6)}
+  .g-risk{background:transparent; border:2px solid var(--at-risk); background-image:linear-gradient(90deg,var(--at-risk) 50%, transparent 50%)}
+  .g-untracked{background:transparent; border:2px solid var(--untracked)}
+  .s-ok{color:var(--ok)} .s-risk{color:var(--at-risk)} .s-untracked{color:var(--untracked)}
+  .rowmeta{color:var(--muted); font-size:14px; line-height:1.4}
+  .rowmeta .ref{font-family:"JetBrains Mono",monospace; color:var(--text); font-size:13px; font-weight:500}
+  .rowmeta .note{color:var(--faint)}
+  .strip{font-family:"JetBrains Mono",monospace; font-size:13px; color:var(--muted); border-top:1px dashed var(--hairline); padding:14px 10px 2px; display:flex; align-items:center; gap:10px}
+  .strip b{color:var(--accent); font-weight:600}
+  .card-foot{display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 24px; border-top:1px solid var(--hairline); background:rgba(10,20,32,.4)}
+  .colophon{display:flex; align-items:center; gap:10px; color:var(--muted); font-size:12.5px; line-height:1.4}
+  .colophon .oct{color:var(--accent); display:flex}
+  .colophon b{color:var(--text); font-weight:500}
+  .ask{font-family:Inter; font-weight:600; font-size:13px; color:var(--accent); border:1px solid var(--hairline);
+    background:transparent; border-radius:10px; padding:8px 13px; cursor:pointer; display:inline-flex; gap:7px; align-items:center; white-space:nowrap; transition:border-color .2s, background .2s}
+  .ask:hover{border-color:var(--accent); background:var(--accent-glow)}
+
+  /* how it works */
+  .steps{display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--hairline); border:1px solid var(--hairline); border-radius:16px; overflow:hidden; margin-top:48px}
+  .step{background:var(--bg); padding:34px 28px}
+  .step .n{font-family:"JetBrains Mono",monospace; font-size:13px; color:var(--accent); font-weight:600; letter-spacing:.05em}
+  .step h3{font-family:Fraunces,serif; font-weight:600; font-size:21px; margin:18px 0 10px; letter-spacing:-.01em}
+  .step p{color:var(--muted); font-size:14.5px; line-height:1.55}
+  @media(max-width:780px){.steps{grid-template-columns:1fr}}
+
+  /* four-quadrant */
+  .quad{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:44px}
+  .qcell{background:var(--surface); border:1px solid var(--hairline); border-radius:14px; padding:24px}
+  .qcell .qh{display:flex; align-items:center; gap:10px; font-weight:600; font-size:15px; margin-bottom:8px}
+  .qcell p{color:var(--muted); font-size:14px; line-height:1.5}
+  .qcell .tag{font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); display:block; margin-bottom:14px}
+  .q-ok{box-shadow:inset 3px 0 0 var(--ok)} .q-risk{box-shadow:inset 3px 0 0 var(--at-risk)}
+  .q-untracked{box-shadow:inset 3px 0 0 var(--untracked)} .q-none{box-shadow:inset 3px 0 0 var(--hairline)}
+  @media(max-width:780px){.quad{grid-template-columns:1fr}}
+
+  /* ask section — chat mockup */
+  .askgrid{display:grid; grid-template-columns:1fr 1.05fr; gap:48px; align-items:center; margin-top:20px}
+  @media(max-width:860px){.askgrid{grid-template-columns:1fr; gap:32px}}
+  .chat{background:var(--surface); border:1px solid var(--hairline); border-radius:17px; padding:8px; box-shadow:0 24px 70px -30px var(--accent-glow)}
+  .chat-head{display:flex; align-items:center; gap:11px; padding:14px 16px; border-bottom:1px solid var(--hairline)}
+  .chat-head .av{color:var(--accent); display:flex}
+  .chat-head .nm{font-weight:600; font-size:14px} .chat-head .st{font-size:11.5px; color:var(--ok); display:flex; align-items:center; gap:6px}
+  .chat-head .st::before{content:""; width:6px; height:6px; border-radius:50%; background:var(--ok); box-shadow:0 0 8px var(--ok)}
+  .chat-body{padding:18px 16px; display:flex; flex-direction:column; gap:14px}
+  .msg{max-width:86%; font-size:14px; line-height:1.55; border-radius:13px; padding:11px 14px}
+  .msg.q{align-self:flex-end; background:var(--surface-2); color:var(--text); border-bottom-right-radius:4px}
+  .msg.a{align-self:flex-start; background:rgba(61,224,210,.06); border:1px solid rgba(61,224,210,.16); color:var(--text); border-bottom-left-radius:4px}
+  .msg.a .ref{font-family:"JetBrains Mono",monospace; color:var(--accent); font-size:12.5px; font-weight:500}
+  .chat-foot{padding:10px 16px 12px; border-top:1px solid var(--hairline); font-size:11.5px; color:var(--faint); display:flex; align-items:center; gap:8px}
+  .chat-foot .oct{color:var(--accent); display:flex}
+
+  /* many arms */
+  .arms{display:flex; flex-wrap:wrap; gap:14px; margin-top:40px}
+  .arm{display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--hairline); border-radius:13px; padding:16px 20px; flex:1; min-width:200px}
+  .arm .d{width:9px; height:9px; border-radius:2px; transform:rotate(45deg); flex:none}
+  .arm .nm{font-weight:600; font-size:15px} .arm .role{color:var(--faint); font-size:12.5px; font-family:"JetBrains Mono",monospace}
+  .arm.soon{opacity:.62}
+
+  /* pricing */
+  .tiers{display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin-top:48px}
+  @media(max-width:860px){.tiers{grid-template-columns:1fr}}
+  .tier{background:var(--surface); border:1px solid var(--hairline); border-radius:17px; padding:30px 26px; display:flex; flex-direction:column}
+  .tier.feat{border-color:var(--accent-deep); box-shadow:0 0 0 1px rgba(61,224,210,.18), 0 24px 70px -30px var(--accent-glow)}
+  .tier .pn{font-family:Fraunces,serif; font-weight:600; font-size:21px}
+  .tier .badge{font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink); background:var(--accent); border-radius:6px; padding:3px 8px; align-self:flex-start; margin-bottom:14px}
+  .tier .price{font-family:Fraunces,serif; font-size:42px; font-weight:500; margin:14px 0 2px; letter-spacing:-.02em}
+  .tier .price .per{font-family:"JetBrains Mono",monospace; font-size:14px; color:var(--muted); font-weight:400}
+  .tier .desc{color:var(--muted); font-size:14px; min-height:42px; margin-bottom:18px}
+  .tier ul{list-style:none; display:flex; flex-direction:column; gap:11px; margin:6px 0 24px; flex:1}
+  .tier li{font-size:14px; color:var(--text); display:flex; gap:10px; align-items:flex-start; line-height:1.45}
+  .tier li::before{content:"›"; color:var(--accent); font-weight:700; flex:none}
+  .tier li.muted{color:var(--muted)}
+  .tier .btn{justify-content:center}
+
+  /* final cta */
+  .final{text-align:center; background:linear-gradient(180deg, rgba(18,31,48,.4), rgba(10,20,32,0)); border:1px solid var(--hairline); border-radius:24px; padding:72px 32px; margin:40px 0}
+  .final h2{max-width:18ch; margin:0 auto}
+  .final .lead{margin:18px auto 0}
+
+  /* footer */
+  footer{border-top:1px solid var(--hairline); padding:48px 0; color:var(--faint); font-size:13px}
+  .footin{display:flex; justify-content:space-between; align-items:flex-start; gap:30px; flex-wrap:wrap}
+  .footin .brand{margin-bottom:10px}
+  .footcols{display:flex; gap:56px; flex-wrap:wrap}
+  .footcol h4{font-size:12px; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); margin-bottom:14px; font-weight:600}
+  .footcol a{display:block; color:var(--faint); text-decoration:none; font-size:13.5px; margin-bottom:9px; transition:color .2s}
+  .footcol a:hover{color:var(--accent)}
+  .sig{color:var(--faint); font-size:12.5px; margin-top:10px; max-width:240px; line-height:1.5}
+
+  /* reveal on scroll */
+  .reveal{opacity:0; transform:translateY(16px); transition:opacity .8s cubic-bezier(.2,.7,.2,1), transform .8s cubic-bezier(.2,.7,.2,1)}
+  .reveal.in{opacity:1; transform:none}
+  @media(prefers-reduced-motion:reduce){.reveal{opacity:1; transform:none; transition:none}}
+  a:focus-visible,button:focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:8px}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="inky" viewBox="0 0 64 64">
+    <g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M16 31c0-11 7-18 16-18s16 7 16 18c0 4-1 7-3 9"/><path d="M16 31c0 3 1 6 3 9"/>
+      <path d="M19 39c-2 3-6 4.5-9.5 3.5"/><path d="M25 42c-1 4-4 7.5-8.5 9"/>
+      <path d="M32 43c.3 5-1.8 9.4-5 12.4"/><path d="M39 42c2.3 4 2.4 8.2.3 12.2"/><path d="M45 39c3 3 7 3.2 10.5 1.4"/>
+    </g>
+    <circle cx="26" cy="29" r="1.7" fill="currentColor"/><circle cx="38" cy="29" r="1.7" fill="#3DE0D2"/>
+  </symbol>
+</svg>
+
+<nav id="nav">
+  <div class="navin">
+    <div class="brand"><svg class="oct" width="26" height="26"><use href="#inky"/></svg> Inky</div>
+    <div class="navlinks">
+      <a class="hideable" href="#how">How it works</a>
+      <a class="hideable" href="#ask">Ask Inky</a>
+      <a class="hideable" href="#sources">Sources</a>
+      <a class="hideable" href="#pricing">Pricing</a>
+      <a class="btn btn-primary" href="#">Add to Discord</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <header class="hero">
+    <div class="eyebrow reveal in"><span class="dot"></span> Many sources · one calm brain</div>
+    <h1 class="reveal in">Your team's standup, written <span class="em-u">for you</span> — from what actually shipped.</h1>
+    <p class="sub reveal in">Inky reads what your team did across <b>GitHub</b> and <b>Linear</b> and writes a grounded daily standup. No typing. No guessing. <b>Facts only.</b></p>
+    <div class="cta reveal in">
+      <a class="btn btn-primary btn-lg" href="#">Add Inky to Discord</a>
+      <a class="linkarrow" href="#ask">See a real standup →</a>
+    </div>
+    <div class="sources reveal in">
+      <span><i></i> GitHub</span><span><i></i> Linear</span><span class="soon"><i></i> Notion · soon</span><span class="soon"><i></i> Granola · soon</span>
+    </div>
+
+    <div class="frame reveal in">
+      <article class="card">
+        <div class="card-head">
+          <div class="card-title"><svg class="oct" width="22" height="22"><use href="#inky"/></svg> Daily Standup — Acme Web</div>
+          <div class="card-time">Thu Jun 5 · 09:00</div>
+        </div>
+        <div class="card-body">
+          <p class="narrative">Yesterday the team merged <span class="m">4 PRs</span> and opened <span class="m">2</span>. Most of the work centred on the billing refactor; review activity was steady across the cycle.</p>
+          <div class="seclabel">Status vs plan — Cycle 23</div>
+          <div class="rows">
+            <div class="row"><span class="state s-ok"><span class="glyph g-ok"></span> On track</span><span class="rowmeta">Auth refactor <span class="ref">#142</span> — <span class="ref">PR #318</span> merged <span class="note">· 2 reviews · tests green</span></span></div>
+            <div class="row"><span class="state s-ok"><span class="glyph g-ok"></span> On track</span><span class="rowmeta">Webhook retries <span class="ref">#150</span> — <span class="ref">PR #321</span> merged <span class="note">· tests green</span></span></div>
+            <div class="row"><span class="state s-risk"><span class="glyph g-risk"></span> At risk</span><span class="rowmeta">Search index <span class="ref">#147</span> — <span class="note">no linked PR yet · 4d idle. Worth a look.</span></span></div>
+            <div class="row"><span class="state s-untracked"><span class="glyph g-untracked"></span> Untracked</span><span class="rowmeta"><span class="ref">PR #324</span> rate-limit fix — <span class="note">no linked issue. Real work, just untracked.</span></span></div>
+          </div>
+          <div class="strip">▸ Cycle 23 — <b>60%</b> elapsed · <b>40%</b> of points merged</div>
+        </div>
+        <div class="card-foot">
+          <div class="colophon"><svg class="oct" width="18" height="18"><use href="#inky"/></svg> <span>Written by <b>Inky</b> · GitHub + Linear · Facts only — nothing invented.</span></div>
+          <button class="ask">Ask Inky →</button>
+        </div>
+      </article>
+    </div>
+  </header>
+
+  <!-- how it works -->
+  <section id="how">
+    <div class="center">
+      <div class="eyebrow reveal"><span class="dot"></span> How it works</div>
+      <h2 class="reveal">No check-ins. No <span class="em">YAML</span>. It just shows up.</h2>
+      <p class="lead reveal">Connect once. Every morning Inky reads what actually happened and writes the standup. The information already lives in your tools — Inky just reads it.</p>
+    </div>
+    <div class="steps reveal">
+      <div class="step"><div class="n">01</div><h3>Connect your tools</h3><p>Install the GitHub App, point Inky at your Linear workspace, pick a Discord channel. Read-only, least-privilege. Two minutes.</p></div>
+      <div class="step"><div class="n">02</div><h3>Inky reads what shipped</h3><p>Commits, PRs, reviews, issues, cycles — collected, de-duplicated, identity-resolved. The numbers are computed, never guessed.</p></div>
+      <div class="step"><div class="n">03</div><h3>You get the standup</h3><p>A grounded daily + weekly standup, per-person and project-wide, with status vs plan. Read it, or ask Inky about it.</p></div>
+    </div>
+  </section>
+
+  <!-- four quadrant -->
+  <section id="status">
+    <div class="eyebrow reveal"><span class="dot"></span> Intention vs execution</div>
+    <h2 class="reveal">What you <span class="em">planned</span>, against what you shipped.</h2>
+    <p class="lead reveal">Inky reconciles your tracker with your code and tells you where things actually stand — including the work that never got a ticket. It classifies; it never invents a link.</p>
+    <div class="quad reveal">
+      <div class="qcell q-ok"><span class="tag">Planned · Shipped</span><div class="qh"><span class="glyph g-ok"></span> On track</div><p>The issue has linked PR activity and it's moving. The calm case — Inky just confirms it.</p></div>
+      <div class="qcell q-risk"><span class="tag">Planned · Not shipped</span><div class="qh"><span class="glyph g-risk"></span> At risk</div><p>A committed issue with no code behind it yet. Flagged as a heads-up, not an alarm.</p></div>
+      <div class="qcell q-untracked"><span class="tag">Shipped · Not planned</span><div class="qh"><span class="glyph g-untracked"></span> Untracked</div><p>Real work shipped with no ticket. Surfaced as signal — flagging the work, never the person.</p></div>
+      <div class="qcell q-none"><span class="tag">The honest gap</span><div class="qh" style="color:var(--muted)">No guessing</div><p>If nothing links a PR to an issue, Inky says so. “I didn't guess” is the feature.</p></div>
+    </div>
+  </section>
+
+  <!-- ask inky -->
+  <section id="ask">
+    <div class="eyebrow reveal"><span class="dot"></span> Ask Inky</div>
+    <div class="askgrid">
+      <div>
+        <h2 class="reveal">Ask anything about <span class="em">the work</span>.</h2>
+        <p class="lead reveal">Inky connects to your tools' APIs and answers in real time — grounded in the actual commits, PRs, and issues. It reads the activity to answer; it doesn't make things up.</p>
+        <p class="lead reveal" style="margin-top:14px">“What did the platform team ship this week?” “Why is the search index at risk?” Ask in the channel, or privately by DM.</p>
+      </div>
+      <div class="chat reveal">
+        <div class="chat-head"><svg class="av" width="26" height="26"><use href="#inky"/></svg><div><div class="nm">Inky</div><div class="st">grounded</div></div></div>
+        <div class="chat-body">
+          <div class="msg q">What's PR #324 about, and why no ticket?</div>
+          <div class="msg a"><span class="ref">PR #324</span> adds rate-limiting to the webhook handler — a token bucket on the inbound route, plus 6 tests. It merged this morning with one review. There's no linked issue; it looks like an unplanned fix, not tracked in Cycle 23.</div>
+          <div class="msg q">Is the search index going to land this cycle?</div>
+          <div class="msg a">Hard to say it's on track — <span class="ref">#147</span> has had no linked PR activity for 4 days and the cycle is 60% elapsed. Nothing's been pushed against it. Worth a look.</div>
+        </div>
+        <div class="chat-foot"><svg class="oct" width="15" height="15"><use href="#inky"/></svg> Facts only — answers come from fetched activity, nothing invented.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- many arms -->
+  <section id="sources">
+    <div class="center">
+      <div class="eyebrow reveal"><span class="dot"></span> Many arms, one brain</div>
+      <h2 class="reveal">One calm reporter, reaching into <span class="em">every</span> source.</h2>
+      <p class="lead reveal">Inky started with GitHub. The same grounded brain now reaches into your tracker, and soon your docs and meetings — so the standup reflects everything the team actually did.</p>
+    </div>
+    <div class="arms reveal">
+      <div class="arm"><span class="d" style="background:var(--accent)"></span><div><div class="nm">GitHub</div><div class="role">execution · live</div></div></div>
+      <div class="arm"><span class="d" style="background:var(--accent)"></span><div><div class="nm">Linear</div><div class="role">the plan · next</div></div></div>
+      <div class="arm soon"><span class="d" style="background:var(--untracked)"></span><div><div class="nm">Notion</div><div class="role">specs · soon</div></div></div>
+      <div class="arm soon"><span class="d" style="background:var(--untracked)"></span><div><div class="nm">Granola</div><div class="role">meetings · soon</div></div></div>
+    </div>
+  </section>
+
+  <!-- pricing -->
+  <section id="pricing">
+    <div class="center">
+      <div class="eyebrow reveal"><span class="dot"></span> Pricing</div>
+      <h2 class="reveal">Free to self-host. <span class="em">Fair</span> to hand off.</h2>
+      <p class="lead reveal">Open-source and yours to run forever. Or let Inky host it — per team, not per seat, with a contributor cap. No “contact sales.”</p>
+    </div>
+    <div class="tiers">
+      <div class="tier reveal">
+        <div class="pn">Self-host</div>
+        <div class="price">$0</div>
+        <div class="desc">The full standup, on your own infra. MIT-licensed, read-only.</div>
+        <ul>
+          <li>Daily + weekly standups</li>
+          <li>Status vs plan (GitHub milestones)</li>
+          <li>GitHub App auth, your own keys</li>
+          <li class="muted">You run the worker</li>
+        </ul>
+        <a class="btn btn-ghost" href="#">View on GitHub</a>
+      </div>
+      <div class="tier feat reveal">
+        <div class="badge">Most teams</div>
+        <div class="pn">Pro</div>
+        <div class="price">$49<span class="per">/mo</span></div>
+        <div class="desc">Hosted, managed keys, and the parts you can't self-host.</div>
+        <ul>
+          <li>Everything in Starter</li>
+          <li><b>Ask Inky</b> — grounded Q&amp;A over the work</li>
+          <li>Private manager DM digests</li>
+          <li>History, trends &amp; Linear status-vs-plan</li>
+          <li>Up to ~25 contributors</li>
+        </ul>
+        <a class="btn btn-primary" href="#">Start free trial</a>
+      </div>
+      <div class="tier reveal">
+        <div class="pn">Starter</div>
+        <div class="price">$19<span class="per">/mo</span></div>
+        <div class="desc">Hosted and zero-maintenance, bring your own LLM key.</div>
+        <ul>
+          <li>Managed hosting + dashboard</li>
+          <li>Slack or Discord delivery</li>
+          <li>Daily + weekly + status vs plan</li>
+          <li>Up to ~10 contributors</li>
+        </ul>
+        <a class="btn btn-ghost" href="#">Start free trial</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- final cta -->
+  <section>
+    <div class="final reveal">
+      <h2>Stop asking “what did you do yesterday?”</h2>
+      <p class="lead">Inky already knows — it reads the work and writes it down. Calm, grounded, and signed by an octopus.</p>
+      <div class="cta" style="margin-top:30px"><a class="btn btn-primary btn-lg" href="#">Add Inky to Discord</a><a class="linkarrow" href="#pricing">See pricing →</a></div>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <div class="wrap footin">
+    <div>
+      <div class="brand"><svg class="oct" width="24" height="24"><use href="#inky"/></svg> Inky</div>
+      <p class="sig">Your team's standup, written for you — from what actually shipped. Open-source &amp; deep-sea calm.</p>
+    </div>
+    <div class="footcols">
+      <div class="footcol"><h4>Product</h4><a href="#how">How it works</a><a href="#ask">Ask Inky</a><a href="#sources">Sources</a><a href="#pricing">Pricing</a></div>
+      <div class="footcol"><h4>Open source</h4><a href="#">GitHub repo</a><a href="#">Self-host guide</a><a href="#">Docs</a><a href="#">Changelog</a></div>
+      <div class="footcol"><h4>Compare</h4><a href="#">vs Geekbot</a><a href="#">vs a webhook</a><a href="#">vs DIY agent</a></div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // nav border on scroll
+  const nav=document.getElementById('nav');
+  addEventListener('scroll',()=>nav.classList.toggle('scrolled',scrollY>8),{passive:true});
+  // staggered reveal on scroll
+  const io=new IntersectionObserver((es)=>{es.forEach((e,i)=>{if(e.isIntersecting){
+    setTimeout(()=>e.target.classList.add('in'), (i%4)*70); io.unobserve(e.target);}});},{threshold:.16,rootMargin:'0px 0px -8% 0px'});
+  document.querySelectorAll('.reveal:not(.in)').forEach(el=>io.observe(el));
+</script>
+</body>
+</html>

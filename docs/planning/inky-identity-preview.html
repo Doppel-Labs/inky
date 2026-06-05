@@ -49,8 +49,8 @@
   .brand{display:flex; align-items:center; gap:11px; font-family:Fraunces,serif; font-weight:600; font-size:20px; letter-spacing:-.01em}
   .brand .oct{color:var(--accent)}
   .navlinks{display:flex; gap:30px; align-items:center}
-  .navlinks a{color:var(--muted); text-decoration:none; font-size:14.5px; transition:color .2s}
-  .navlinks a:hover{color:var(--text)}
+  .navlinks a:not(.btn){color:var(--muted); text-decoration:none; font-size:14.5px; transition:color .2s}
+  .navlinks a:not(.btn):hover{color:var(--text)}
   .btn{
     font-family:Inter; font-weight:600; font-size:14.5px; border:none; cursor:pointer;
     border-radius:12px; padding:11px 18px; text-decoration:none; display:inline-flex;
