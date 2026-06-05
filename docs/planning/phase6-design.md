@@ -139,12 +139,14 @@ Mirrors `roadmap-and-phase-6.md` step list, with entry/exit criteria:
 2. **Monorepo migration** ✅ (`db76816`, CI green) — pnpm workspace; `src → packages/core`;
    154 tests green from the new path; `inky` CLI runs from `packages/core/dist/cli.js`;
    render.yaml/Procfile/Dockerfile updated in lockstep.
-3. **`packages/db`** — schema + Config↔DB mapping ✅ (`4734d87`): Drizzle pg-core tables
+3. **`packages/db`** ✅ (`4734d87` schema/mapping, `8ab9ffc` live layer): Drizzle pg-core tables
    (tenants/installations/channels/configs/runs/billing) + pure `assembleConfig`/`disassembleConfig`
-   validated by `ConfigSchema`; round-trip `Config === file Config` proven (the exit criterion).
-   Also established the `@inky/core` source-export contract. **Still pending in this step:** the
-   live Drizzle client + drizzle-kit migrations against a real Neon Postgres (needs a DB + the
-   webhook-URL encryption scheme) — the next slice. ← **resume here**
+   validated by `ConfigSchema` (round-trip `Config === file Config`); `createDb(DATABASE_URL)` pooled
+   node-postgres client; `loadTenantConfigByOrg`/`upsertTenantConfig` row adapters; AES-256-GCM
+   at-rest crypto for the webhook URL (`INKY_DB_ENCRYPTION_KEY`); generated migration `drizzle/0000`.
+   Established the `@inky/core` source-export contract. Verified hermetically with **pglite** (real
+   PG in WASM): migrate → write → load round-trips identical, encryption-at-rest, idempotent upsert.
+   *Real-Neon smoke still pending* (no live DB in dev) — adapters pglite-verified, pg pool typecheck-verified.
 4. **Dashboard MVP** — GitHub OAuth login → App install flow → connect a Discord webhook →
    pick repos/schedule/settings → write rows. *Exit:* a tenant can be fully configured via UI.
 5. **Multi-tenant worker** — pg-boss cron fan-out: for each active tenant, build `Config`
@@ -170,6 +172,8 @@ Mirrors `roadmap-and-phase-6.md` step list, with entry/exit criteria:
 ## Open questions (decide as we hit them)
 - Managed-tier license for `apps/*` + `packages/db` (source-available vs private).
 - Worker host: Render (already known) vs Fly (regions/cost) — pick at step 5.
-- Encryption-at-rest scheme for webhook URLs (libsodium sealed box vs KMS) — pick at step 3.
+- ~~Encryption-at-rest scheme for webhook URLs~~ — **decided (step 3):** AES-256-GCM via
+  `node:crypto` with one app key from `INKY_DB_ENCRYPTION_KEY` (zero-dep, authenticated). Revisit
+  KMS/per-tenant keys only if compliance requires. (`packages/db/src/crypto.ts`.)
 - Dashboard ↔ worker contract: shared `packages/db` only, or also a thin internal API? (Lean
   DB-only first.)
