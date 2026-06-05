@@ -10,6 +10,14 @@ notes: Where Inky goes next — the three work tracks (adoption, feature depth, 
 
 # Inky — roadmap & Phase 6
 
+> **Strategy context (two memos in tension — read both):**
+> [`inky-market-and-growth-strategy.md`](inky-market-and-growth-strategy.md) is the **floor** —
+> realistic, conservative: a $3–8k/mo lifestyle SaaS selling a standup to Discord-native dev teams.
+> [`inky-ambitious-strategy.md`](inky-ambitious-strategy.md) is the **ceiling** — the bull case:
+> re-point the already-built metrics engine at the manager/founder buyer and it's a ~$420k–$1.4M ARR
+> activity-intelligence play. They **agree on the next concrete move** (`/ask` + telemetry first), which
+> is the cheap experiment that decides which memo is right.
+
 ## Where we are (the inflection point)
 The MVP is **done and running hosted**: Inky reads Doppel-Labs' GitHub activity and
 posts a daily + weekly standup on a schedule, plus on-demand `/standup`, all from a
@@ -23,6 +31,7 @@ Now that it's public, lower the friction to discover, trust, and run it:
 - **CI:** a GitHub Actions workflow running the 111 tests + typecheck on PRs (a green badge builds trust).
 - **`CONTRIBUTING.md`**, issue/PR templates, a one-command quickstart.
 - **Distribution:** submit to `awesome-selfhosted` / `awesome-discord`, a `r/selfhosted` + Product Hunt post, a short "why" blog.
+- **Telemetry (measurement — the week-one prerequisite both strategy memos demand).** Inky is self-hosted, so today you have **zero signal**: no install count, no active-team count, no feature-usage data — every funnel number is a guess. Build the minimal opt-in, anonymous, aggregate event stream: `instance_started` · `heartbeat` · `standup_run` · `ask_run` (once it ships) · `footer_link_clicked`. Trust-gated (opt-in, no org/repo/contributor data, README-disclosed) since the audience is privacy-conscious self-hosters. **This unblocks the one experiment that decides floor-vs-ceiling** (does `/ask` get used? does the manager buyer convert?) and makes Loop 1 (the standup footer → installs viral coefficient) measurable. Full shape in [`telemetry-design.md`](telemetry-design.md).
 - **Keys:** nothing to rotate — `.env` was gitignored the whole time and never committed (verified), so the public repo exposes no secrets. Only rotate on a *known* exposure (a screenshot/paste). The fine-grained PAT already auto-expires (~90 days).
 
 *Why first:* in open-core, OSS adoption **is** the go-to-market for the paid tier. Highest leverage per hour.
@@ -32,7 +41,7 @@ Now that it's public, lower the friction to discover, trust, and run it:
 - **`reconcile()` extensions:** `ROADMAP.md`-declared roadmap — **done** (`roadmap-md` source). Next: GitHub Projects v2, then Linear / Notion adapters (see below). (`source` enum already leaves room.)
 - **Week-over-week trends** on the stats panel — **done** (`config.trends`, ↑/↓/→ vs the prior window).
 - **Per-person opt-out** (`excludePeople`) — **done** (privacy/trust).
-- **Slack delivery** — deferred to Phase 6: it's a paid-tier surface (managed multi-workspace), so it lands with monetization, not before. Self-host stays Discord for now.
+- **Slack delivery** — **on the roadmap as the #1 GTM bet** (see *Next bets* below + `inky-market-and-growth-strategy.md`). It's the single market-unlock: ~8–10× the *paying* SAM, since the GitHub-org teams that actually pay live in Slack, not Discord. Lands with the Phase 6 hosted tier (managed multi-workspace OAuth) and gets its own Product Hunt moment. Self-host stays Discord for now.
 
 ### Backlog (captured from discussion, not yet scheduled)
 - **Team-performance visuals (charts).** Discord renders markdown/embeds, not charts, so three tiers: (1) **now, cheap, on-brand** — unicode sparklines / mini bar charts in the stats panel (e.g. a 6-week sparkline next to each trend metric); zero deps, fits the in-Discord ethos. (2) **image attach** — render a PNG (QuickChart.io URL, or a tiny serverside chart) and attach to the embed; richer, still self-host-able. (3) **the real home** — the Phase 6 web **dashboard** with interactive charts over history. *Dependency:* anything beyond "this vs last window" needs **stored history** (past windows) — which is Phase 6 Postgres. So: a this-vs-last sparkline is doable now (pairs with the trends feature); multi-week/quarter charts wait for storage + dashboard.
@@ -42,6 +51,35 @@ Now that it's public, lower the friction to discover, trust, and run it:
   - **Multiple scheduled channels (cheap-ish).** Today one webhook = one channel (`render.yaml`/`DISCORD_WEBHOOK_URL`). Self-host: add `discord.webhookUrls[]` or a per-`schedule.job` channel/webhook so different standups post to different channels. **Phase 6 makes this first-class:** the new `channels` table is already one-tenant→many-channels, so the dashboard picks channels per schedule. (See `packages/db/src/schema.ts`.)
   - **Private DM delivery / ephemeral stats (high-value, needs the bot not a webhook).** A manager privately inspects the team. Two forms, cheapest first: (a) **ephemeral `/standup` (or `/team-stats`) reply** — Discord interaction replies can be flagged ephemeral so only the invoker sees them; small change to the existing `commands.ts`/`bot.ts` path, no DM plumbing. (b) **true DM** — the bot DMs a user the standup/stats on a schedule or on request; needs a user opt-in + the bot online (not webhook-only). Strong trust/privacy feature; (a) is a quick win, (b) pairs with the Phase 6 sharded bot.
 - **Conversational drill-down — "chat with Inky about the work" (user, 2026-06-05).** Ask Inky questions — "what did Bob accomplish this week?", "why did the API PR take so long?" — and have it drill into the actual commits/PRs/reviews and answer. This is the **big, differentiated** one: a grounded Q&A *agent* over org activity, not a fixed report. Architecture: an LLM with **tools** to fetch activity on demand (commits, PR diffs, reviews) layered over the existing `collect()`/`github.ts` data, holding the **same grounding discipline as the standup** (answer only from verified fetched facts — the tool-forced `emit` pattern, no invented claims). Tiers: (1) **one-shot `/ask <question>`** — a focused collect + a grounded single answer (buildable on the current bot, self-host-able). (2) **conversational thread** — Inky keeps context and calls tools iteratively to drill down (agentic; heavier). (3) the Phase 6 dashboard as a richer chat surface over stored history. **A premium hook** ("ask your codebase what your team actually did") and a natural paid-tier feature; the one-shot `/ask` is the testable MVP. Privacy note: pairs with the ephemeral/DM delivery above so a manager can ask privately.
+
+### Next bets (sequenced) — from the market & growth strategy
+> Full reasoning, market sizing, and the realistic revenue band live in
+> [`inky-market-and-growth-strategy.md`](inky-market-and-growth-strategy.md). The honest
+> read: this is a **$3–8k/mo lifestyle SaaS** (BASE), ceiling ~$10–25k/mo *only if* Slack
+> ships — not a venture business. Sequence accordingly:
+1. **Slack delivery** *(horizontal — the market unlock)* — escapes the low-WTP Discord
+   niche into the ~8–10× larger Slack pool. Highest leverage of anything on the roadmap.
+2. **Conversational drill-down, one-shot `/ask`** *(vertical — the differentiated paywall)* —
+   ship into the free tool first to prove demand; it's the feature a manager pulls out a
+   card for, and the grounding discipline is the moat vs. generic cron-agents. (Backlog item above.)
+3. **Linear BYO-key `reconcile()` source** *(vertical — cheap proof of the paid thesis)* —
+   "status vs the plan you actually use" without the OAuth tax. (Backlog item above.)
+
+**Direction (documented):** bets 2–3 are the seed of a **source-agnostic agent harness** — abstract the
+GitHub pipeline so the scheduled digest *and* `/ask` call sources as tools (GitHub → **Linear** → GitHub
+Projects v2 → Notion/Granola). Positioning = grounded **intention vs execution** (planned vs shipped vs
+**untracked** work — GitHub often ships what the tracker never tracked). Guardrails: Slack = delivery *not*
+source (no whole-org ingest), no general-assistant drift, grounding discipline scales with sources. Full
+sketch + four-quadrant reconcile model + sequencing in [`multi-source-harness-strategy.md`](multi-source-harness-strategy.md).
+
+**Pricing (documented):** open-core; free self-host forever + hosted **per-org flat, contributor-capped** —
+**Starter $19/mo** (BYO key, ~10 contributors, Slack *or* Discord) and **Pro $49/mo** (managed key,
+~25, `/ask` + private DM digests + status-vs-plan + history). Undercuts Geekbot ($3/user/mo, *and they
+still type*); 10× below eng-analytics tools. **GTM** = product-led / OSS-funnel (Show HN, Product Hunt,
+awesome-lists, comparison-page SEO, the standup footer as zero-CAC reach); land on Discord-native dev
+teams, expand via Slack. **Competitors:** async standup bots (human-input), event firehoses (noisy),
+eng analytics (enterprise-priced), generic cron-agents (ungrounded). None own *zero-input, GitHub-derived,
+grounded, in-chat*. **Prerequisite:** instrument the funnel — there's currently zero usage telemetry.
 
 ## Track C — Phase 6: the hosted multi-tenant tier (the business)
 
