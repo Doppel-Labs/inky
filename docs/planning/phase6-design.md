@@ -139,8 +139,12 @@ Mirrors `roadmap-and-phase-6.md` step list, with entry/exit criteria:
 2. **Monorepo migration** ✅ (`db76816`, CI green) — pnpm workspace; `src → packages/core`;
    154 tests green from the new path; `inky` CLI runs from `packages/core/dist/cli.js`;
    render.yaml/Procfile/Dockerfile updated in lockstep.
-3. **`packages/db`** ← **NEXT** — Drizzle schema + migrations + typed client; `Config`-from-row builder
-   reusing the zod schema. *Exit:* round-trip a `Config` through the DB === the file `Config`.
+3. **`packages/db`** — schema + Config↔DB mapping ✅ (`4734d87`): Drizzle pg-core tables
+   (tenants/installations/channels/configs/runs/billing) + pure `assembleConfig`/`disassembleConfig`
+   validated by `ConfigSchema`; round-trip `Config === file Config` proven (the exit criterion).
+   Also established the `@inky/core` source-export contract. **Still pending in this step:** the
+   live Drizzle client + drizzle-kit migrations against a real Neon Postgres (needs a DB + the
+   webhook-URL encryption scheme) — the next slice. ← **resume here**
 4. **Dashboard MVP** — GitHub OAuth login → App install flow → connect a Discord webhook →
    pick repos/schedule/settings → write rows. *Exit:* a tenant can be fully configured via UI.
 5. **Multi-tenant worker** — pg-boss cron fan-out: for each active tenant, build `Config`
