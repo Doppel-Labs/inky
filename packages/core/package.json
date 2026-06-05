@@ -7,6 +7,13 @@
   "bin": {
     "inky": "./dist/cli.js"
   },
+  "//exports": "Internal-monorepo source exports: tsx/tsc resolve the .ts directly so dependent packages typecheck/test without building core first. The `inky` bin still runs the compiled dist/cli.js (relative imports, unaffected by this map).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./config": "./src/config.ts",
+    "./types": "./src/types.ts",
+    "./standup": "./src/standup.ts"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/cli.ts",
