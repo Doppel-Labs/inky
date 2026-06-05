@@ -39,8 +39,10 @@ export const tenants = pgTable('tenants', {
  */
 export const installations = pgTable('installations', {
   id: uuid('id').primaryKey().defaultRandom(),
+  // One App installation per tenant (unique) — also the upsert conflict target.
   tenantId: uuid('tenant_id')
     .notNull()
+    .unique()
     .references(() => tenants.id, { onDelete: 'cascade' }),
   githubAppId: text('github_app_id').notNull(),
   githubInstallationId: bigint('github_installation_id', { mode: 'number' }).notNull(),
@@ -68,8 +70,10 @@ export const channels = pgTable('channels', {
  *  by ConfigSchema on read. JSONB so it evolves with Config without a migration. */
 export const configs = pgTable('configs', {
   id: uuid('id').primaryKey().defaultRandom(),
+  // One settings row per tenant (unique) — also the upsert conflict target.
   tenantId: uuid('tenant_id')
     .notNull()
+    .unique()
     .references(() => tenants.id, { onDelete: 'cascade' }),
   settings: jsonb('settings').$type<ConfigSettings>().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

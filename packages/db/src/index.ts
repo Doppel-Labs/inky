@@ -1,8 +1,9 @@
 /**
- * @inky/db public surface — the schema + the pure Config↔DB mapping. The live
- * Drizzle client and migrations (the part that needs a real Postgres connection)
- * land in a follow-up slice; this package is currently schema + mapping only,
- * unit-tested without a database.
+ * @inky/db public surface — the schema, the pure Config↔DB mapping, the live
+ * client, the row adapters, and the at-rest encryption for stored secrets.
  */
 export * from './schema.js';
 export * from './config-store.js';
+export * from './client.js';
+export * from './tenant-config.js';
+export * from './crypto.js';
