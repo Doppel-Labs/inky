@@ -91,3 +91,25 @@ need can't be met with an anonymous count, it doesn't ship without a fresh, disc
 `telemetry.enabled` flag honored everywhere · the five events firing · a one-line README disclosure +
 a first-run log line · a trivial ingest receiving them · the footer link carrying an attribution param.
 That's enough to stop flying blind and to start measuring Loop 1.
+
+## Status: implemented (2026-06-05)
+Built end-to-end:
+- **Client** (`packages/core/src/telemetry.ts`): the `telemetry` config block (opt-in, off by
+  default), an anonymous persisted install id (`resolveInstanceId`), and a fire-and-forget tracker
+  that never throws or blocks. The shared `TelemetryEventSchema` is the wire contract and enforces
+  **scalar-only props** (a structural guard against nested identity payloads). 14 unit tests.
+- **Events wired**: `instance_started` (serve boot) · `heartbeat` (worker, boot + daily) ·
+  `standup_run` (worker scheduled + `/standup` command + CLI one-shot, with `trigger`/`windowHours`/
+  `dryRun` + coarse `statsPanel`/`roadmap`/`provider` flags). `ask_run` is in the event union, fires
+  once `/ask` ships. A first-run disclosure log line prints when telemetry is active.
+- **Footer attribution**: both standup footers now carry a `?ref=standup-footer` "host your own" link
+  (`render.ts` `HOST_YOURS_URL`) so the landing page can measure Loop 1.
+- **Sink**: `telemetry_events` table + `insertTelemetryEvent` in `@inky/db` (anonymous — **no tenant
+  FK**), migration `0001_*`. The ingest is `apps/ingest` — a framework-agnostic `handleTelemetry`
+  (validate → insert) plus a standalone Node http server; wrap the handler for any serverless host.
+  7 ingest tests + 3 db tests.
+
+**Not yet done (deploy-time, intentionally out of this build):** standing up Inky's own hosted ingest
+URL and setting `DEFAULT_TELEMETRY_ENDPOINT`; the landing page that records `footer_link_clicked`.
+Until an endpoint is configured, an `enabled` instance wires every event but sends nowhere (a logged
+no-op) — the code is decoupled from the infra decision.

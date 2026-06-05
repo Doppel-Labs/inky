@@ -18,6 +18,11 @@ import type { Config, ScheduleJob, Secrets } from './config.js';
 import { resolveWebhookUrl } from './config.js';
 import { buildStandup } from './standup.js';
 import { postStandupToDiscord } from './discord.js';
+import { configFeatureFlags, noopTracker, type Tracker } from './telemetry.js';
+
+/** Daily anonymous liveness ping — distinguishes a live deployment from a
+ *  one-time trial. Only scheduled when telemetry is opted-in and active. */
+const HEARTBEAT_CRON = '0 0 * * *';
 
 /** The slice of a scheduled job the worker needs — satisfied by croner's Cron. */
 export interface ScheduledJob {
@@ -50,6 +55,8 @@ export interface WorkerOptions {
   scheduler?: SchedulerFactory;
   /** Injectable per-job cycle body (defaults to the real build + deliver). */
   runJob?: (job: ScheduleJob) => Promise<void>;
+  /** Anonymous usage telemetry (opt-in). Defaults to the inert noop tracker. */
+  telemetry?: Tracker;
 }
 
 export interface WorkerHandle {
@@ -71,6 +78,7 @@ export async function startWorker(
   opts: WorkerOptions = {},
 ): Promise<WorkerHandle> {
   const log = opts.log ?? ((m: string) => process.stderr.write(m + '\n'));
+  const telemetry = opts.telemetry ?? noopTracker;
   const webhookUrl = resolveWebhookUrl(config, secrets);
 
   // A scheduled worker that posts needs somewhere to post. Fail fast and loud
@@ -87,7 +95,15 @@ export async function startWorker(
       const tag = job.label ? ` (${job.label})` : '';
       log(`inky: running scheduled standup${tag}…`);
       const built = await buildStandup(config, secrets, { windowHours: job.windowHours, log });
-      if (opts.dryRun || !webhookUrl) {
+      const dryRun = opts.dryRun || !webhookUrl;
+      // Anonymous: a scheduled run happened, its window, dry-run, coarse flags.
+      void telemetry.track('standup_run', {
+        trigger: 'scheduled',
+        windowHours: job.windowHours ?? config.windowHours,
+        dryRun,
+        ...configFeatureFlags(config),
+      });
+      if (dryRun) {
         log(`inky: dry run${tag} — printing standup instead of posting.`);
         process.stdout.write(built.markdown + '\n');
         return;
@@ -113,6 +129,19 @@ export async function startWorker(
   const scheduler = opts.scheduler ?? cronScheduler;
   const cronJobs: ScheduledJob[] = [];
 
+  // Opt-in liveness: ping once at boot, then daily. Only when telemetry is
+  // active — so a non-telemetry worker schedules nothing extra (and the unit
+  // tests that count scheduled jobs are unaffected).
+  let heartbeat: ScheduledJob | undefined;
+  if (telemetry.active) {
+    void telemetry.track('heartbeat');
+    heartbeat = scheduler(
+      HEARTBEAT_CRON,
+      { timezone: config.schedule.timezone },
+      () => void telemetry.track('heartbeat'),
+    );
+  }
+
   jobs.forEach((job, i) => {
     // One scheduled tick: never throws — a bad run is logged, the worker lives on.
     const tick = async () => {
@@ -136,7 +165,11 @@ export async function startWorker(
   });
 
   return {
-    stop: () => cronJobs.forEach((j) => j.stop()),
+    stop: () => {
+      cronJobs.forEach((j) => j.stop());
+      heartbeat?.stop();
+    },
+    // The soonest next *standup* run (the heartbeat is internal liveness, not a post).
     nextRun: () => {
       const times = cronJobs.map((j) => j.nextRun()).filter((d): d is Date => d != null);
       return times.length ? times.reduce((a, b) => (a < b ? a : b)) : null;

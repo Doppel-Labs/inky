@@ -12,7 +12,8 @@
     ".": "./src/index.ts",
     "./config": "./src/config.ts",
     "./types": "./src/types.ts",
-    "./standup": "./src/standup.ts"
+    "./standup": "./src/standup.ts",
+    "./telemetry": "./src/telemetry.ts"
   },
   "scripts": {
     "build": "tsc",

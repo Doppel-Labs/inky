@@ -185,6 +185,35 @@ export const ConfigSchema = z.object({
       repo: z.string().optional(),
     })
     .default({}),
+  /**
+   * Anonymous, opt-in usage telemetry. OFF by default — Inky never phones home
+   * unless the operator turns this on. When enabled, the only thing sent is an
+   * event name + an anonymous random install id + the Inky version + coarse
+   * counts (see telemetry.ts). NEVER org/repo names, contributor logins, commit
+   * or PR content, or any key. It exists so the project can tell deployed
+   * instances apart from GitHub stars and see which features get used — the one
+   * signal a self-hosted tool otherwise has zero of. Disclosed in the README;
+   * trivially disabled by leaving `enabled` false (or removing this block).
+   */
+  telemetry: z
+    .object({
+      /** Opt-in master switch. Off until the operator explicitly turns it on. */
+      enabled: z.boolean().default(false),
+      /**
+       * Where events POST. Omit to use Inky's default ingest; set your own to
+       * self-host the sink (or point it nowhere to wire events without sending).
+       */
+      endpoint: z.string().url().optional(),
+      /**
+       * Anonymous install id. "auto" (default) persists a random UUID locally
+       * (a file under the state dir / cwd) so it's stable across restarts but
+       * tied to nothing. Pin a fixed value here on ephemeral hosts (containers
+       * whose disk resets) so restarts don't look like new installs. NEVER derive
+       * it from org/repo — it must carry no identity.
+       */
+      instanceId: z.string().default('auto'),
+    })
+    .default({}),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

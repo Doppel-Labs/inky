@@ -8,6 +8,13 @@
       "when": 1780647948124,
       "tag": "0000_numerous_proemial_gods",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780695857151,
+      "tag": "0001_cuddly_bastion",
+      "breakpoints": true
     }
   ]
 }

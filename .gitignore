@@ -28,3 +28,6 @@ npm-debug.log*
 
 # local standup output (scratch)
 .inky-output/
+
+# telemetry runtime state (the anonymous, per-install id) — never commit
+.inky/

@@ -13,6 +13,7 @@
 import 'dotenv/config';
 import { loadConfig, loadSecrets, resolveWebhookUrl } from './config.js';
 import { resolveWindow } from './window.js';
+import { configFeatureFlags, createTelemetry } from './telemetry.js';
 
 const COMMANDS = ['collect', 'standup', 'serve', 'register-commands'] as const;
 const PROVIDERS = ['anthropic', 'groq', 'openai'] as const;
@@ -226,6 +227,18 @@ async function main(): Promise<void> {
   if (model) config = { ...config, model };
   const secrets = loadSecrets();
 
+  // Anonymous, opt-in usage telemetry. Off unless the operator enabled it; when
+  // on, the first-run disclosure makes plain what's sent (an anonymous count, no
+  // identities). See docs/planning/telemetry-design.md.
+  const telemetry = createTelemetry(config, { log: (m) => console.error(m) });
+  if (telemetry.active) {
+    console.error(
+      `inky: anonymous usage telemetry ON (install ${telemetry.instanceId.slice(0, 8)}…). ` +
+        'Sends event counts only — never org/repo names, logins, content, or keys. ' +
+        'Turn off with telemetry.enabled=false.',
+    );
+  }
+
   switch (command) {
     case 'collect': {
       const { collect } = await import('./collect.js');
@@ -248,39 +261,48 @@ async function main(): Promise<void> {
       });
 
       const webhookUrl = resolveWebhookUrl(config, secrets);
+      const flags = configFeatureFlags(config);
+      const win = windowHours ?? config.windowHours;
       if (dryRun || !webhookUrl) {
         if (!webhookUrl && !dryRun) {
           console.error('standup: no Discord webhook configured — printing instead.');
         }
         process.stdout.write(markdown);
+        // Awaited (not voided) so this one-shot's event flushes before exit.
+        await telemetry.track('standup_run', { trigger: 'command', windowHours: win, dryRun: true, ...flags });
         break;
       }
       const { postStandupToDiscord } = await import('./discord.js');
       const { messages, embeds } = await postStandupToDiscord(webhookUrl, markdown);
       console.error(`standup: posted ${embeds} embed(s) in ${messages} message(s) to Discord.`);
+      await telemetry.track('standup_run', { trigger: 'command', windowHours: win, dryRun: false, ...flags });
       break;
     }
     case 'serve': {
       const { startWorker } = await import('./worker.js');
       if (once) {
         // --once is a single scheduled-post cycle (for testing); no bot loop.
-        await startWorker(config, secrets, { once: true, dryRun, log: (m) => console.error(m) });
+        await startWorker(config, secrets, { once: true, dryRun, log: (m) => console.error(m), telemetry });
         break;
       }
+
+      // A long-running deployment is the thing telemetry most wants to count:
+      // fire instance_started once at boot (the worker then pings heartbeats).
+      void telemetry.track('instance_started', configFeatureFlags(config));
 
       const stops: Array<() => void | Promise<void>> = [];
 
       // Scheduled posting — runs when a webhook is configured (or in --dry-run).
       const webhookUrl = resolveWebhookUrl(config, secrets);
       if (webhookUrl || dryRun) {
-        const worker = await startWorker(config, secrets, { dryRun, log: (m) => console.error(m) });
+        const worker = await startWorker(config, secrets, { dryRun, log: (m) => console.error(m), telemetry });
         stops.push(worker.stop);
       }
 
       // On-demand /standup — runs when a bot token is configured.
       if (secrets.discordBotToken) {
         const { startBot } = await import('./bot.js');
-        const bot = await startBot(config, secrets, { log: (m) => console.error(m) });
+        const bot = await startBot(config, secrets, { log: (m) => console.error(m), telemetry });
         stops.push(bot.stop);
       }
 

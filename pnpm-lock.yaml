@@ -8,6 +8,31 @@ importers:
 
   .: {}
 
+  apps/ingest:
+    dependencies:
+      '@inky/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@inky/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      drizzle-orm:
+        specifier: ^0.38.0
+        version: 0.38.4(@electric-sql/pglite@0.5.1)(@types/pg@8.20.0)(pg@8.21.0)
+    devDependencies:
+      '@electric-sql/pglite':
+        specifier: ^0.5.1
+        version: 0.5.1
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.19.19
+      tsx:
+        specifier: ^4.19.2
+        version: 4.22.3
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+
   packages/core:
     dependencies:
       '@anthropic-ai/sdk':

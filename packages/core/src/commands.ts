@@ -12,6 +12,7 @@ import { REST, Routes, SlashCommandBuilder } from 'discord.js';
 import type { Config, Secrets } from './config.js';
 import { buildStandup as buildStandupImpl } from './standup.js';
 import { standupEmbeds as standupEmbedsImpl, type StandupEmbed } from './discord.js';
+import { configFeatureFlags, noopTracker, type Tracker } from './telemetry.js';
 
 export const STANDUP_COMMAND_NAME = 'standup';
 
@@ -160,6 +161,8 @@ export interface StandupCommandDeps {
   buildStandup?: typeof buildStandupImpl;
   standupEmbeds?: typeof standupEmbedsImpl;
   log?: (msg: string) => void;
+  /** Anonymous usage telemetry (opt-in). Defaults to the inert noop tracker. */
+  telemetry?: Tracker;
 }
 
 /**
@@ -174,6 +177,7 @@ export async function handleStandupCommand(
   deps: StandupCommandDeps = {},
 ): Promise<void> {
   const log = deps.log ?? (() => {});
+  const telemetry = deps.telemetry ?? noopTracker;
   const build = deps.buildStandup ?? buildStandupImpl;
   const toEmbeds = deps.standupEmbeds ?? standupEmbedsImpl;
   const req = resolveStandupRequest(ix);
@@ -182,6 +186,15 @@ export async function handleStandupCommand(
   await ix.defer(ephemeral); // building takes ~seconds; Discord wants an ack within 3
   try {
     const built = await build(config, secrets, { ...req, log });
+    // Anonymous: a /standup command ran, its window + coarse flags. `private`
+    // is a UI choice, not identity, so it's safe to count.
+    void telemetry.track('standup_run', {
+      trigger: 'command',
+      windowHours: req.windowHours ?? config.windowHours,
+      dryRun: false,
+      private: ephemeral,
+      ...configFeatureFlags(config),
+    });
     await ix.respond(toEmbeds(built.markdown));
     log(
       `inky: /standup answered for ${ix.user} (${describeWindow(req.windowHours)}${ephemeral ? ', private' : ''}).`,

@@ -268,6 +268,41 @@ activity without posting it to the channel. Enable it by setting `DISCORD_BOT_TO
 + `discord.applicationId`, running `inky register-commands` once, then
 `inky serve`. Full walkthrough: [`docs/discord-bot-setup.md`](docs/discord-bot-setup.md).
 
+## Telemetry (opt-in, off by default)
+
+Inky is self-hosted, so by default the project has **no idea anyone is running
+it** — no install count, no usage signal. The optional telemetry block turns on
+an anonymous, aggregate ping so we can tell deployed instances apart from GitHub
+stars and see which features get used. It is **off unless you turn it on**, and
+when on, Inky prints a first-run line stating exactly that.
+
+```jsonc
+"telemetry": {
+  "enabled": true,                          // off by default — nothing is sent until you opt in
+  "endpoint": "https://your-ingest.example/t", // where events POST (run your own — see apps/ingest)
+  "instanceId": "auto"                      // a random local UUID; pin a value on ephemeral hosts
+}
+```
+
+**What's sent** is the entire payload — nothing else leaves your machine:
+
+```jsonc
+{ "event": "standup_run", "instanceId": "b3f1…", "version": "0.0.1", "ts": 1733400000,
+  "props": { "trigger": "scheduled", "windowHours": 24, "dryRun": false, "provider": "anthropic" } }
+```
+
+Just an event name, a random install id, the Inky version, a timestamp, and a
+few **scalar** counts/flags. The events are: `instance_started`, `heartbeat`
+(daily liveness), `standup_run`, and `ask_run` (once `/ask` ships).
+
+**What is _never_ sent:** org or repo names, contributor logins or emails, commit
+or PR content, your config values, or any key. The wire schema rejects non-scalar
+`props` so a nested identity payload can't ride along — you can read the refusal
+to over-collect in [`packages/core/src/telemetry.ts`](packages/core/src/telemetry.ts).
+The sink is a ~tiny endpoint you can self-host (see
+[`apps/ingest`](apps/ingest/README.md)); design notes in
+[`docs/planning/telemetry-design.md`](docs/planning/telemetry-design.md).
+
 ## License
 
 MIT

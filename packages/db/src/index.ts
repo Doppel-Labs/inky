@@ -7,3 +7,4 @@ export * from './config-store.js';
 export * from './client.js';
 export * from './tenant-config.js';
 export * from './crypto.js';
+export * from './telemetry-events.js';

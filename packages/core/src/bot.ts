@@ -20,9 +20,12 @@ import {
 import type { Config, Secrets } from './config.js';
 import { handleStandupCommand, STANDUP_COMMAND_NAME, type StandupInteraction } from './commands.js';
 import { EMBEDS_PER_MESSAGE } from './discord.js';
+import { noopTracker, type Tracker } from './telemetry.js';
 
 export interface BotOptions {
   log?: (msg: string) => void;
+  /** Anonymous usage telemetry (opt-in). Defaults to the inert noop tracker. */
+  telemetry?: Tracker;
 }
 
 export interface BotHandle {
@@ -36,6 +39,7 @@ export async function startBot(
   opts: BotOptions = {},
 ): Promise<BotHandle> {
   const log = opts.log ?? ((m: string) => process.stderr.write(m + '\n'));
+  const telemetry = opts.telemetry ?? noopTracker;
   const token = secrets.discordBotToken;
   if (!token) throw new Error('inky: no DISCORD_BOT_TOKEN set for the /standup bot.');
 
@@ -51,7 +55,7 @@ export async function startBot(
     // This listener is fire-and-forget: an unhandled rejection here would crash
     // the process (Node's default), so contain everything.
     try {
-      await handleStandupCommand(adapt(interaction, log), config, secrets, { log });
+      await handleStandupCommand(adapt(interaction, log), config, secrets, { log, telemetry });
     } catch (err) {
       log(`inky: /${STANDUP_COMMAND_NAME} handler error: ${(err as Error).message}`);
     }

@@ -97,6 +97,29 @@ export const runs = pgTable('runs', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Anonymous, opt-in usage telemetry from self-hosted (and hosted) instances.
+ * Deliberately NOT tenant-scoped: a self-host event carries only a random
+ * install id, never an org/repo/login — so there's no tenant to reference. This
+ * is the sink the apps/ingest function writes to; the wire contract is
+ * @inky/core's TelemetryEventSchema. The only columns are the envelope plus a
+ * server-stamped receive time. See docs/planning/telemetry-design.md.
+ */
+export const telemetryEvents = pgTable('telemetry_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  /** Anonymous, stable-per-install id. No FK — it identifies an install, not a tenant. */
+  instanceId: text('instance_id').notNull(),
+  event: text('event').notNull(),
+  /** Inky version the event came from (support + upgrade-adoption signal). */
+  version: text('version'),
+  /** Scalar-only counts/flags (windowHours, trigger, provider, …). Never identities. */
+  props: jsonb('props').$type<Record<string, string | number | boolean>>(),
+  /** Client-sent unix-seconds timestamp, stored as a timestamptz. */
+  ts: timestamp('ts', { withTimezone: true }).notNull(),
+  /** Server receive time — guards against clock skew / spoofed `ts`. */
+  receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 /** Stripe linkage + the tier/cap the plan enforces (flat per-org w/ contributor cap). */
 export const billing = pgTable('billing', {
   tenantId: uuid('tenant_id')
