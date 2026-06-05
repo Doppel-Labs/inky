@@ -256,11 +256,14 @@ defaults per run:
 
 ```
 /standup range:This week stats:On per_person:false format:prose
+/standup range:This week private:true        # only you see it
 ```
 
 `range` (Today / This week / This month) or a custom `days` (1–90); `stats`
 (On / Off / Auto), `per_person`, and `format` (Bullets / Prose) — all optional,
-each falling back to `inky.config.json`. Enable it by setting `DISCORD_BOT_TOKEN`
+each falling back to `inky.config.json`. Add **`private:true`** to get the reply
+**ephemerally** — visible only to you, so a manager can inspect the team's
+activity without posting it to the channel. Enable it by setting `DISCORD_BOT_TOKEN`
 + `discord.applicationId`, running `inky register-commands` once, then
 `inky serve`. Full walkthrough: [`docs/discord-bot-setup.md`](docs/discord-bot-setup.md).
 

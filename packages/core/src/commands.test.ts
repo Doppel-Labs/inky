@@ -24,6 +24,7 @@ interface FakeOptions {
   stats?: string;
   per_person?: boolean;
   format?: string;
+  private?: boolean;
 }
 
 function makeIx(options: FakeOptions = {}) {
@@ -31,6 +32,7 @@ function makeIx(options: FakeOptions = {}) {
     calls: [] as string[],
     embeds: undefined as StandupEmbed[] | undefined,
     error: undefined as string | undefined,
+    ephemeral: undefined as boolean | undefined,
   };
   const pick = (name: string) => (name in options ? (options as Record<string, unknown>)[name] : null);
   const ix: StandupInteraction = {
@@ -41,7 +43,10 @@ function makeIx(options: FakeOptions = {}) {
       return typeof v === 'boolean' ? v : null;
     },
     user: 'tester',
-    defer: async () => void state.calls.push('defer'),
+    defer: async (ephemeral) => {
+      state.calls.push('defer');
+      state.ephemeral = ephemeral;
+    },
     respond: async (embeds) => {
       state.calls.push('respond');
       state.embeds = embeds;
@@ -117,6 +122,18 @@ test('handleStandupCommand defers, builds with the requested options, and respon
   assert.equal(rec.opts?.format, 'prose');
   assert.equal(state.embeds?.length, 1);
   assert.equal(state.error, undefined);
+  assert.equal(state.ephemeral, false); // public by default
+});
+
+test('handleStandupCommand defers ephemerally when private:true (manager inspects privately)', async () => {
+  const { ix, state } = makeIx({ range: 'week', private: true });
+  await handleStandupCommand(ix, cfg(), secrets, {
+    buildStandup: fakeBuild({}),
+    standupEmbeds: fakeEmbeds,
+    log: () => {},
+  });
+  assert.deepEqual(state.calls, ['defer', 'respond']);
+  assert.equal(state.ephemeral, true);
 });
 
 test('handleStandupCommand reports a build failure in place of the standup', async () => {
@@ -188,6 +205,7 @@ test('buildStandupCommand exposes range, days, and the report-setting options', 
 
   assert.ok(byName('per_person')); // boolean toggle
   assert.equal((byName('format')!.choices as unknown[]).length, 2);
+  assert.ok(byName('private')); // ephemeral-reply toggle
 });
 
 test('registerCommands targets a guild route when guildId is set', async () => {

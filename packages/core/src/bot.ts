@@ -13,6 +13,7 @@ import {
   Client,
   Events,
   GatewayIntentBits,
+  MessageFlags,
   type ChatInputCommandInteraction,
   type Interaction,
 } from 'discord.js';
@@ -69,13 +70,17 @@ export async function startBot(
 
 /** Adapt a real discord.js interaction to the handler's narrow view. */
 function adapt(interaction: ChatInputCommandInteraction, log: (msg: string) => void): StandupInteraction {
+  // Set at defer time and reused for follow-ups: the deferred reply (and its
+  // editReply) is already ephemeral, but each follow-up must opt in explicitly.
+  let ephemeral = false;
   return {
     getString: (name) => interaction.options.getString(name),
     getInteger: (name) => interaction.options.getInteger(name),
     getBoolean: (name) => interaction.options.getBoolean(name),
     user: interaction.user.username,
-    defer: async () => {
-      await interaction.deferReply();
+    defer: async (eph) => {
+      ephemeral = eph;
+      await interaction.deferReply(eph ? { flags: MessageFlags.Ephemeral } : {});
     },
     respond: async (embeds) => {
       // editReply takes the first batch; the rest go as follow-ups (10/message).
@@ -84,7 +89,10 @@ function adapt(interaction: ChatInputCommandInteraction, log: (msg: string) => v
       await interaction.editReply({ embeds: embeds.slice(0, EMBEDS_PER_MESSAGE) });
       for (let i = EMBEDS_PER_MESSAGE; i < embeds.length; i += EMBEDS_PER_MESSAGE) {
         try {
-          await interaction.followUp({ embeds: embeds.slice(i, i + EMBEDS_PER_MESSAGE) });
+          await interaction.followUp({
+            embeds: embeds.slice(i, i + EMBEDS_PER_MESSAGE),
+            ...(ephemeral ? { flags: MessageFlags.Ephemeral } : {}),
+          });
         } catch (err) {
           log(`inky: follow-up embed batch failed: ${(err as Error).message}`);
         }

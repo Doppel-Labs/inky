@@ -72,6 +72,11 @@ export function buildStandupCommand(): SlashCommandBuilder {
       .setDescription('Per-person style (default: bullets)')
       .addChoices({ name: 'Bullets', value: 'bullets' }, { name: 'Prose', value: 'prose' }),
   );
+  // Private (ephemeral) reply — only the invoker sees it. Lets a manager inspect
+  // the team's activity without posting it to the channel.
+  cmd.addBooleanOption((o) =>
+    o.setName('private').setDescription('Only you see the reply — inspect the team privately'),
+  );
   return cmd;
 }
 
@@ -110,8 +115,13 @@ export interface StandupInteraction {
   getBoolean(name: string): boolean | null;
   /** Who invoked it — for logging only. */
   user: string;
-  /** Acknowledge within 3s ("Inky is thinking…") so we can take our time. */
-  defer(): Promise<void>;
+  /**
+   * Acknowledge within 3s ("Inky is thinking…") so we can take our time. When
+   * `ephemeral`, the entire reply (and any follow-ups) is visible only to the
+   * invoker. Discord fixes ephemerality at defer time — it can't change after —
+   * so the choice is made here, before the build.
+   */
+  defer(ephemeral: boolean): Promise<void>;
   /** Post the finished standup. */
   respond(embeds: StandupEmbed[]): Promise<void>;
   /** Report a failure in place of the standup. */
@@ -167,12 +177,15 @@ export async function handleStandupCommand(
   const build = deps.buildStandup ?? buildStandupImpl;
   const toEmbeds = deps.standupEmbeds ?? standupEmbedsImpl;
   const req = resolveStandupRequest(ix);
+  const ephemeral = ix.getBoolean('private') ?? false;
 
-  await ix.defer(); // building takes ~seconds; Discord wants an ack within 3
+  await ix.defer(ephemeral); // building takes ~seconds; Discord wants an ack within 3
   try {
     const built = await build(config, secrets, { ...req, log });
     await ix.respond(toEmbeds(built.markdown));
-    log(`inky: /standup answered for ${ix.user} (${describeWindow(req.windowHours)}).`);
+    log(
+      `inky: /standup answered for ${ix.user} (${describeWindow(req.windowHours)}${ephemeral ? ', private' : ''}).`,
+    );
   } catch (err) {
     const message = (err as Error).message ?? String(err);
     log(`inky: /standup failed for ${ix.user}: ${message}`);
