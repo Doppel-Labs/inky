@@ -132,12 +132,14 @@ cached client holds the key for minting; acceptable — secrets load once at sta
 Mirrors `roadmap-and-phase-6.md` step list, with entry/exit criteria:
 
 0. **This doc** ✅ — decisions locked.
-1. **H3 fix** — memoizing Octokit provider in `github-auth.ts` (single-tenant now; the
-   multi-tenant cache later). *Exit:* one lookup per identity, tests green. **Doable now,
-   no live-App dependency.**
-2. **Monorepo migration** — pnpm workspace; `src → packages/core`; 149 tests green from the
-   new path. *Exit:* `pnpm -r test` green, `inky` CLI still runs.
-3. **`packages/db`** — Drizzle schema + migrations + typed client; `Config`-from-row builder
+1. **H3 fix** ✅ (`0831e7a`, hardened `9eb9d95`) — memoizing Octokit provider in
+   `github-auth.ts` (single-tenant now; the multi-tenant cache later). Reviewed, no
+   blockers; PAT key hashed, eviction made unhandled-rejection-safe, injectable `build`
+   seam + tests. One lookup per identity.
+2. **Monorepo migration** ✅ (`db76816`, CI green) — pnpm workspace; `src → packages/core`;
+   154 tests green from the new path; `inky` CLI runs from `packages/core/dist/cli.js`;
+   render.yaml/Procfile/Dockerfile updated in lockstep.
+3. **`packages/db`** ← **NEXT** — Drizzle schema + migrations + typed client; `Config`-from-row builder
    reusing the zod schema. *Exit:* round-trip a `Config` through the DB === the file `Config`.
 4. **Dashboard MVP** — GitHub OAuth login → App install flow → connect a Discord webhook →
    pick repos/schedule/settings → write rows. *Exit:* a tenant can be fully configured via UI.
