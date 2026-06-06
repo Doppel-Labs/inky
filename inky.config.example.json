@@ -5,6 +5,7 @@
   "windowHours": 24,
   "excludeBots": true,
   "extraNoisePatterns": [],
+  "maxCommitLines": 300000,
   "aliases": {
     "alice": ["alice-personal", "alice@example.com"],
     "bob": ["bob-laptop", "bob@bobs-macbook-pro.local"]

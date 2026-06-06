@@ -138,6 +138,30 @@ export interface CommitRecord {
   commit: CommitActivity;
 }
 
+/**
+ * LOC-accuracy cleaning for a single commit's churn, matching team-perf semantics.
+ * Both rules zero the LOC while KEEPING the commit (so commit + active-day counts
+ * are untouched); only `additions/deletions` go to 0:
+ *  - merge commits (`parentCount > 1`): GitHub reports a merge's stats as the full
+ *    diff of the merged branch, so counting it double-counts the branch's real
+ *    commits and mis-attributes their LOC to the merger.
+ *  - bulk commits over `maxCommitLines`: a single vendored/import/checkpoint commit
+ *    of real-looking source that path filtering can't catch and that would
+ *    otherwise dominate the totals.
+ * Pure, so the rules are unit-tested without the GitHub API.
+ */
+export function cleanCommitChurn(
+  churn: { additions: number; deletions: number },
+  parentCount: number,
+  maxCommitLines: number,
+): { additions: number; deletions: number; isMerge: boolean } {
+  const isMerge = parentCount > 1;
+  if (isMerge || churn.additions + churn.deletions > maxCommitLines) {
+    return { additions: 0, deletions: 0, isMerge };
+  }
+  return { additions: churn.additions, deletions: churn.deletions, isMerge };
+}
+
 /** A commit list item from the GitHub API, paired with a branch we found it on. */
 interface RawCommit {
   item: Awaited<ReturnType<Octokit['rest']['repos']['listCommits']>>['data'][number];
@@ -178,6 +202,7 @@ export async function fetchCommits(
   repo: string,
   window: Window,
   isNoise: NoiseMatcher = isGeneratedPath,
+  maxCommitLines = 300_000,
 ): Promise<CommitRecord[]> {
   const info = await octokit.rest.repos.get({ owner: org, repo });
   const defaultBranch = info.data.default_branch;
@@ -217,8 +242,10 @@ export async function fetchCommits(
       name: c.commit.author?.name ?? null,
       avatarUrl: c.author?.avatar_url ?? null,
     };
+    const parentCount = c.parents?.length ?? 0;
     let additions = 0;
     let deletions = 0;
+    let isMerge = parentCount > 1;
     try {
       const full = await octokit.rest.repos.getCommit({ owner: org, repo, ref: c.sha });
       // Sum only "real" churn — exclude lockfiles/generated/vendored paths.
@@ -230,10 +257,13 @@ export async function fetchCommits(
         })),
         isNoise,
       );
-      additions = churn.additions;
-      deletions = churn.deletions;
+      // Then drop merge-commit and bulk-import LOC (counts stay intact).
+      const cleaned = cleanCommitChurn(churn, parentCount, maxCommitLines);
+      additions = cleaned.additions;
+      deletions = cleaned.deletions;
+      isMerge = cleaned.isMerge;
     } catch {
-      // best-effort: leave line counts at 0
+      // best-effort: leave line counts at 0 (isMerge already set from parents)
     }
     const unshipped = !shippedShas.has(c.sha);
     const commit: CommitActivity = {
@@ -245,6 +275,7 @@ export async function fetchCommits(
       url: c.html_url,
       authoredAt: c.commit.author?.date ?? window.until,
       unshipped,
+      isMerge,
       branch: unshipped ? branch : undefined,
     };
     return { author, commit };

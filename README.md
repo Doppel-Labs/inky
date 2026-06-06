@@ -157,6 +157,24 @@ over a pre-built digest, so a small model holds up — defaults favor cost. Run
   person; `format: "prose"` (or `--format prose`) gives a narrative paragraph. The
   project summary stays prose either way.
 
+### How LOC is counted
+
+LOC is `additions + deletions` over **real** files only. A built-in noise filter excludes
+lockfiles, generated code, vendored dependencies, build output, caches, and snapshots — the full
+default list lives in [`packages/core/src/filter.ts`](packages/core/src/filter.ts).
+
+- **Configurable.** Add repo-specific globs (picomatch syntax) via `extraNoisePatterns` in your
+  config to exclude anything else that inflates counts (e.g. `"**/*.snap"`, `"docs/reference/**"`).
+- **Bulk-import cap.** A single commit whose real churn exceeds `maxCommitLines` (default 300k)
+  contributes **0** to LOC — path filtering can't catch a bulk commit of *real-looking* source
+  (a vendored workspace, a reference-codebase import, an integration checkpoint), and one such
+  commit can be 1M+ lines and swamp the whole team's totals. Tune via `maxCommitLines` in config.
+- **Merge commits excluded.** GitHub reports a merge's stats as the full merged-branch diff, so
+  Inky forces merge-commit LOC to **0** — otherwise merges double-count the branch's real commits
+  and credit someone else's branch to whoever merged it.
+- Both rules **only** zero LOC; the commit still counts toward commit and active-day totals. Treat
+  per-person LOC as a rough *size* signal, not a precise or comparative score.
+
 ### Status vs plan (roadmap)
 
 Inky can tie the window's activity to your **roadmap** and add a **📍 Status vs

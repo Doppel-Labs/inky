@@ -49,6 +49,7 @@ function commit(over: Partial<CommitActivity> = {}): CommitActivity {
     url: 'https://gh/web/commit/x',
     authoredAt: window.until,
     unshipped: false,
+    isMerge: false,
     ...over,
   };
 }

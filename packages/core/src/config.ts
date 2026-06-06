@@ -62,6 +62,16 @@ export const ConfigSchema = z.object({
    * in the window is skipped too.
    */
   staleDays: z.union([z.number().int().nonnegative(), z.literal('auto')]).default(0),
+  /**
+   * Bulk-import LOC cap. Any single commit whose `additions + deletions` (after
+   * noise filtering) exceeds this contributes 0 to LOC totals — its commit and
+   * active-day counts are unaffected. Path-based noise filtering can't catch a
+   * bulk commit of *real-looking* source (a vendored research workspace, a
+   * reference-codebase import, an integration checkpoint); one such commit can be
+   * 1M+ lines and dominate the whole team's churn. Default 300_000 sits well above
+   * any genuine hand-authored commit. Matches team-perf semantics.
+   */
+  maxCommitLines: z.number().int().positive().default(300_000),
   /** Standup window length in hours (default 24). */
   windowHours: z.number().int().positive().default(24),
   /** Exclude bot accounts (logins ending in `[bot]`) from the standup. */

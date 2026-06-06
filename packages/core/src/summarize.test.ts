@@ -76,6 +76,7 @@ function commit(over: Partial<import('./types.js').CommitActivity> = {}) {
     url: 'https://gh/web/commit/x',
     authoredAt: window.until,
     unshipped: false,
+    isMerge: false,
     ...over,
   };
 }
@@ -96,6 +97,7 @@ const sampleActivity: OrgActivity = {
           url: 'https://gh/web/commit/a1',
           authoredAt: window.until,
           unshipped: true,
+          isMerge: false,
           branch: 'feat/parser',
         },
         {
@@ -107,6 +109,7 @@ const sampleActivity: OrgActivity = {
           url: 'https://gh/web/commit/b2',
           authoredAt: window.until,
           unshipped: false,
+          isMerge: false,
         },
       ],
       pullRequests: [
@@ -172,14 +175,14 @@ test('computeOrgTotals rolls up per-person totals + distinct repos', () => {
     window,
     people: [
       person('a', {
-        commits: [{ repo: 'web', sha: '1', message: 'm', additions: 1, deletions: 0, url: 'u', authoredAt: window.until, unshipped: false }],
+        commits: [{ repo: 'web', sha: '1', message: 'm', additions: 1, deletions: 0, url: 'u', authoredAt: window.until, unshipped: false, isMerge: false }],
         pullRequests: [
           { repo: 'web', number: 1, title: 't', state: 'merged', additions: 1, deletions: 0, url: 'u', createdAt: window.since },
         ],
         totals: { ...emptyTotals(), commits: 3, prsMerged: 2, prsOpened: 1, repos: 1 },
       }),
       person('b', {
-        commits: [{ repo: 'api', sha: '2', message: 'm', additions: 1, deletions: 0, url: 'u', authoredAt: window.until, unshipped: true }],
+        commits: [{ repo: 'api', sha: '2', message: 'm', additions: 1, deletions: 0, url: 'u', authoredAt: window.until, unshipped: true, isMerge: false }],
         totals: { ...emptyTotals(), commits: 4, unshippedCommits: 1, prsMerged: 1, repos: 1 },
       }),
     ],

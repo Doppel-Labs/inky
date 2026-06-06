@@ -41,6 +41,13 @@ export interface CommitActivity {
   /** True if the commit is NOT on the repo's default branch — i.e. work in
    *  progress on a feature branch, not yet shipped to main. */
   unshipped: boolean;
+  /**
+   * True if this is a merge commit (>1 parent). Merge commits have their LOC
+   * forced to 0 (GitHub reports a merge's stats as the full merged-branch diff,
+   * which double-counts and mis-attributes), but are kept so commit/day counts
+   * are unchanged. Carried so consumers can also drop merges from commit counts.
+   */
+  isMerge: boolean;
   /** A branch the commit lives on. Set for unshipped commits (the feature branch). */
   branch?: string;
 }

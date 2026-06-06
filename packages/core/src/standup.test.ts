@@ -34,6 +34,7 @@ function activityFor(window: Window): OrgActivity {
             url: 'u',
             authoredAt: window.until,
             unshipped: false,
+            isMerge: false,
           },
         ],
         pullRequests: [

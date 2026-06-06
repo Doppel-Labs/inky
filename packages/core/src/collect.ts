@@ -110,7 +110,7 @@ export async function collect(
 
   for (const repo of repos) {
     try {
-      const commits = await fetchCommits(octokit, config.org, repo, window, isNoise);
+      const commits = await fetchCommits(octokit, config.org, repo, window, isNoise, config.maxCommitLines);
       for (const { author, commit } of commits) {
         bucketFor(resolver.resolve(author)).commits.push(commit);
       }
