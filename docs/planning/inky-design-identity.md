@@ -283,3 +283,41 @@ Status glyphs are calm dots/rings, not red/green traffic-light alarms: ● cyan 
 ## 7. One-paragraph build-handoff summary
 
 Build Inky on **Abyssal**: an ink-navy canvas (`#0A1420`) with `#121F30` surfaces, cool off-white text (`#EAF2F8`), a single bioluminescent **cyan accent** (`#3DE0D2`) used sparingly as "the one light," and a calm, non-alarmist semantic set (cyan on-track / amber `#F2B45C` at-risk / slate `#8AA0B4` untracked / soft-coral blocked for true failure only). Type is **Fraunces** display with one italic emphasis word per headline (Gitmore's editorial move, our face), **Inter** body, and **Geist/JetBrains Mono** on every fact as a grounding cue. Depth comes from surface elevation + a cool cyan glow (not drop shadows), 16px card radius, hairline `#23384F` borders, and print-grade whitespace. The octopus is a calm single-weight line mark (a colophon, not a cartoon), signing each standup; ink-diffusion is the signature loading motion. Voice is confident, calm, plain-spoken, anti-hype — never snarky like Gitmore, never enterprise-buzzwordy, never accusatory about people. **Lead headline: "Your team's standup, written *for you* — from what actually shipped."**
+
+---
+
+## 8. Implementation status & current decision (updated 2026-06-06)
+
+A working, **token-themed** landing page implements this identity: `inky-landing.html`. Body type
+moved from Inter → **Hanken Grotesk** (warmer/humanist; Inter read as the AI-slop tell), and the
+display serif now engages **Fraunces' SOFT/WONK/optical axes** so it reads hand-cut. Atmosphere is
+restrained (caustic drift, ~14 slow bioluminescent motes, a ghost-octopus watermark, two-light abyss),
+all disabled under `prefers-reduced-motion`. Copy moved to a time-saved angle ("No meeting. No typing.
+It's already written." + "≈ 4 hours a week a 10-person team never spends"); pricing reordered to ascend
+(Self-host → Starter → Pro-featured).
+
+**Current decision (user, 2026-06-06): default palette = "Gold / Anglerfish" — provisional.** The user
+prefers a warmer feel (Gitmore-adjacent). **All five palettes are kept live** behind a `data-theme`
+switch (a click bar in the page + `?theme=` URL param) so a **designer can revisit and choose** in a
+future pass — nothing is deleted. This supersedes the §2 "Abyssal" recommendation as the *shipped
+default*, but Abyssal/the others remain first-class options.
+
+The five implemented palettes (each a `:root[data-theme]` block; accent driven by `--accent-rgb` so glows/gradients re-theme cleanly):
+
+| Theme | Canvas | Surface | Text | Accent ("the one light") | Notes |
+|---|---|---|---|---|---|
+| **Gold — Anglerfish** ⭐ *current default* | `#0C1118` | `#13202A` | `#F6F0E6` | `#F4C56B` warm gold | one warm lure in cold dark water; at-risk shifts to coral `#E8806B` (gold owns on-track) |
+| Cyan — Abyssal | `#091320` | `#111E2F` | `#ECF3F8` | `#41E3D4` aqua-cyan | the original §2 recommendation; cool/magical |
+| Violet — Squid-Ink | `#0B0F26` | `#15183A` | `#ECEAFB` | `#8A7CFF` ink-violet | literal to the name |
+| Phosphor | `#07130F` | `#0F1F18` | `#EAF6EE` | `#54E6A2` biolum-green | anglerfish-algae |
+| Paper — Inkwell *(light)* | `#F5F1E8` | `#FFFFFF` | `#1B2330` | `#0E8C86` deep-sea teal | warm editorial like Gitmore but teal-not-gold (the user's stated favorite *look*; closest to Gitmore's lane — differentiate via teal + octopus) |
+
+Semantic set is shared/calm across themes: on-track = the accent, at-risk = amber watch (coral under Gold),
+untracked = neutral slate, blocked = soft coral for true failure only. Octopus eye now follows
+`currentColor` so the mark re-themes with the accent.
+
+**For the future designer pass:** the palettes above are a starting menu, not a verdict; the open
+question is warm-light (Paper, the user's taste, but nearest Gitmore) vs. a distinctive dark
+(Gold/Cyan, further from the competitor). The `inky-identity-preview.html` token demo still reflects the
+*older* Inter/cyan pass and should be reconciled to whatever the designer locks. The switcher is dev-only
+and comes out when a single palette is finalized.
