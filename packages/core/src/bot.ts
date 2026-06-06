@@ -18,7 +18,13 @@ import {
   type Interaction,
 } from 'discord.js';
 import type { Config, Secrets } from './config.js';
-import { handleStandupCommand, STANDUP_COMMAND_NAME, type StandupInteraction } from './commands.js';
+import {
+  ASK_COMMAND_NAME,
+  handleAskCommand,
+  handleStandupCommand,
+  STANDUP_COMMAND_NAME,
+  type StandupInteraction,
+} from './commands.js';
 import { EMBEDS_PER_MESSAGE } from './discord.js';
 import { noopTracker, type Tracker } from './telemetry.js';
 
@@ -46,18 +52,24 @@ export async function startBot(
   const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
   client.once(Events.ClientReady, (c) => {
-    log(`inky: bot online as ${c.user.tag}. /${STANDUP_COMMAND_NAME} is ready.`);
+    log(`inky: bot online as ${c.user.tag}. /${STANDUP_COMMAND_NAME} + /${ASK_COMMAND_NAME} are ready.`);
   });
 
   client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     if (!interaction.isChatInputCommand()) return;
-    if (interaction.commandName !== STANDUP_COMMAND_NAME) return;
+    const command = interaction.commandName;
+    if (command !== STANDUP_COMMAND_NAME && command !== ASK_COMMAND_NAME) return;
     // This listener is fire-and-forget: an unhandled rejection here would crash
     // the process (Node's default), so contain everything.
     try {
-      await handleStandupCommand(adapt(interaction, log), config, secrets, { log, telemetry });
+      const ix = adapt(interaction, log);
+      if (command === ASK_COMMAND_NAME) {
+        await handleAskCommand(ix, config, secrets, { log, telemetry });
+      } else {
+        await handleStandupCommand(ix, config, secrets, { log, telemetry });
+      }
     } catch (err) {
-      log(`inky: /${STANDUP_COMMAND_NAME} handler error: ${(err as Error).message}`);
+      log(`inky: /${command} handler error: ${(err as Error).message}`);
     }
   });
 

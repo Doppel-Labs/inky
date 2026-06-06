@@ -1,8 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  buildAskCommand,
   buildStandupCommand,
   describeWindow,
+  handleAskCommand,
   handleStandupCommand,
   registerCommands,
   resolveCommandWindow,
@@ -11,7 +13,9 @@ import {
 } from './commands.js';
 import { ConfigSchema, type Config, type Secrets } from './config.js';
 import type { BuildStandupOptions, BuiltStandup } from './standup.js';
+import type { AskOptions, BuiltAnswer } from './ask.js';
 import type { StandupEmbed } from './discord.js';
+import type { TelemetryEventName, TelemetryProps, Tracker } from './telemetry.js';
 
 const secrets: Secrets = { githubToken: 't' };
 function cfg(): Config {
@@ -25,6 +29,7 @@ interface FakeOptions {
   per_person?: boolean;
   format?: string;
   private?: boolean;
+  question?: string;
 }
 
 function makeIx(options: FakeOptions = {}) {
@@ -145,6 +150,128 @@ test('handleStandupCommand reports a build failure in place of the standup', asy
   });
   assert.deepEqual(state.calls, ['defer', 'respondError']);
   assert.match(state.error ?? '', /GitHub exploded/);
+});
+
+// ── /ask ─────────────────────────────────────────────────────────────────────
+
+function fakeAnswer(rec: { opts?: AskOptions }, over: { grounded?: boolean; throwMsg?: string } = {}) {
+  return async (_c: Config, _s: Secrets, opts: AskOptions): Promise<BuiltAnswer> => {
+    rec.opts = opts;
+    if (over.throwMsg) throw new Error(over.throwMsg);
+    return {
+      markdown: '# Answer',
+      answer: 'Answer.',
+      grounded: over.grounded ?? true,
+      via: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+      window: { since: 'a', until: 'b' },
+      empty: false,
+    };
+  };
+}
+
+/** A tracker that records the events it's asked to send. */
+function recordingTracker(): { tracker: Tracker; events: Array<{ event: TelemetryEventName; props?: TelemetryProps }> } {
+  const events: Array<{ event: TelemetryEventName; props?: TelemetryProps }> = [];
+  const tracker: Tracker = {
+    enabled: true,
+    active: true,
+    instanceId: 'test',
+    track: async (event, props) => void events.push({ event, props }),
+  };
+  return { tracker, events };
+}
+
+test('buildAskCommand requires a question option', () => {
+  const json = buildAskCommand().toJSON();
+  assert.equal(json.name, 'ask');
+  const q = json.options?.find((o) => o.name === 'question');
+  assert.ok(q?.required, 'question must be a required option');
+});
+
+test('handleAskCommand defers, answers the question for the window, and responds', async () => {
+  const { ix, state } = makeIx({ question: 'what shipped?', range: 'week' });
+  const rec: { opts?: AskOptions } = {};
+  const { tracker, events } = recordingTracker();
+  await handleAskCommand(ix, cfg(), secrets, {
+    buildAnswer: fakeAnswer(rec),
+    standupEmbeds: fakeEmbeds,
+    telemetry: tracker,
+    log: () => {},
+  });
+  assert.deepEqual(state.calls, ['defer', 'respond']);
+  assert.equal(rec.opts?.question, 'what shipped?');
+  assert.equal(rec.opts?.windowHours, 168);
+  assert.equal(state.embeds?.length, 1);
+  assert.equal(state.ephemeral, false);
+  // ask_run fired with scalar context (no question text)
+  assert.equal(events.length, 1);
+  assert.equal(events[0]!.event, 'ask_run');
+  assert.deepEqual(events[0]!.props, { trigger: 'command', windowHours: 168, grounded: true, private: false });
+});
+
+test('handleAskCommand answers privately (ephemeral) when private:true', async () => {
+  const { ix, state } = makeIx({ question: 'what shipped?', private: true });
+  const { tracker, events } = recordingTracker();
+  await handleAskCommand(ix, cfg(), secrets, {
+    buildAnswer: fakeAnswer({}),
+    standupEmbeds: fakeEmbeds,
+    telemetry: tracker,
+    log: () => {},
+  });
+  assert.equal(state.ephemeral, true);
+  assert.equal(events[0]!.props?.private, true);
+});
+
+test('handleAskCommand carries grounded=false into telemetry when unanswerable', async () => {
+  const { ix } = makeIx({ question: 'why did #42 take long?' });
+  const { tracker, events } = recordingTracker();
+  await handleAskCommand(ix, cfg(), secrets, {
+    buildAnswer: fakeAnswer({}, { grounded: false }),
+    standupEmbeds: fakeEmbeds,
+    telemetry: tracker,
+    log: () => {},
+  });
+  assert.equal(events[0]!.props?.grounded, false);
+});
+
+test('handleAskCommand rejects an empty question without building', async () => {
+  const { ix, state } = makeIx({}); // no question
+  let built = false;
+  await handleAskCommand(ix, cfg(), secrets, {
+    buildAnswer: async () => {
+      built = true;
+      throw new Error('should not build');
+    },
+    standupEmbeds: fakeEmbeds,
+    log: () => {},
+  });
+  assert.equal(built, false);
+  assert.deepEqual(state.calls, ['defer', 'respondError']);
+  assert.match(state.error ?? '', /Ask a question/);
+});
+
+test('handleAskCommand reports a build failure in place of the answer', async () => {
+  const { ix, state } = makeIx({ question: 'what shipped?' });
+  await handleAskCommand(ix, cfg(), secrets, {
+    buildAnswer: fakeAnswer({}, { throwMsg: 'no ANTHROPIC_API_KEY' }),
+    standupEmbeds: fakeEmbeds,
+    log: () => {},
+  });
+  assert.deepEqual(state.calls, ['defer', 'respondError']);
+  assert.match(state.error ?? '', /no ANTHROPIC_API_KEY/);
+});
+
+test('registerCommands registers both /standup and /ask', async () => {
+  const sent: { route: string; body: unknown } = { route: '', body: undefined };
+  await registerCommands({
+    applicationId: 'app',
+    guildId: 'guild',
+    token: 'tok',
+    put: async (route, body) => void Object.assign(sent, { route, body }),
+    log: () => {},
+  });
+  const names = (sent.body as Array<{ name: string }>).map((c) => c.name);
+  assert.deepEqual(names.sort(), ['ask', 'standup']);
 });
 
 test('handleStandupCommand truncates a long error and survives a failing error reply', async () => {

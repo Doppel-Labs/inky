@@ -11,10 +11,12 @@
 import { REST, Routes, SlashCommandBuilder } from 'discord.js';
 import type { Config, Secrets } from './config.js';
 import { buildStandup as buildStandupImpl } from './standup.js';
+import { buildAnswer as buildAnswerImpl } from './ask.js';
 import { standupEmbeds as standupEmbedsImpl, type StandupEmbed } from './discord.js';
 import { configFeatureFlags, noopTracker, type Tracker } from './telemetry.js';
 
 export const STANDUP_COMMAND_NAME = 'standup';
+export const ASK_COMMAND_NAME = 'ask';
 
 /** Preset ranges the picker offers → window length in hours. */
 const RANGE_HOURS: Record<string, number> = {
@@ -77,6 +79,42 @@ export function buildStandupCommand(): SlashCommandBuilder {
   // the team's activity without posting it to the channel.
   cmd.addBooleanOption((o) =>
     o.setName('private').setDescription('Only you see the reply — inspect the team privately'),
+  );
+  return cmd;
+}
+
+/** The `/ask` command: a free-text question + the same window/private controls. */
+export function buildAskCommand(): SlashCommandBuilder {
+  const cmd = new SlashCommandBuilder()
+    .setName(ASK_COMMAND_NAME)
+    .setDescription('Ask Inky about the team’s recent GitHub activity (grounded answer)')
+    // Same secure default as /standup — it exposes the org's private activity.
+    .setDefaultMemberPermissions('0');
+  cmd.addStringOption((o) =>
+    o
+      .setName('question')
+      .setDescription('e.g. “what did alice ship this week?” / “what’s still in flight on api?”')
+      .setRequired(true),
+  );
+  cmd.addStringOption((o) =>
+    o
+      .setName('range')
+      .setDescription('Time window to look at (defaults to the configured window)')
+      .addChoices(
+        { name: 'Today', value: 'today' },
+        { name: 'This week', value: 'week' },
+        { name: 'This month', value: 'month' },
+      ),
+  );
+  cmd.addIntegerOption((o) =>
+    o
+      .setName('days')
+      .setDescription(`Custom window in days (overrides range), ${MIN_DAYS}–${MAX_DAYS}`)
+      .setMinValue(MIN_DAYS)
+      .setMaxValue(MAX_DAYS),
+  );
+  cmd.addBooleanOption((o) =>
+    o.setName('private').setDescription('Only you see the reply — ask privately'),
   );
   return cmd;
 }
@@ -213,6 +251,65 @@ export async function handleStandupCommand(
   }
 }
 
+export interface AskCommandDeps {
+  buildAnswer?: typeof buildAnswerImpl;
+  standupEmbeds?: typeof standupEmbedsImpl;
+  log?: (msg: string) => void;
+  /** Anonymous usage telemetry (opt-in). Defaults to the inert noop tracker. */
+  telemetry?: Tracker;
+}
+
+/**
+ * Handle one `/ask` invocation: ack, build a grounded answer for the requested
+ * window, respond with it. Mirrors handleStandupCommand — same defer/respond/
+ * error discipline, reusing the standup→embeds renderer for the answer markdown.
+ */
+export async function handleAskCommand(
+  ix: StandupInteraction,
+  config: Config,
+  secrets: Secrets,
+  deps: AskCommandDeps = {},
+): Promise<void> {
+  const log = deps.log ?? (() => {});
+  const telemetry = deps.telemetry ?? noopTracker;
+  const build = deps.buildAnswer ?? buildAnswerImpl;
+  const toEmbeds = deps.standupEmbeds ?? standupEmbedsImpl;
+
+  const question = (ix.getString('question') ?? '').trim();
+  const windowHours = resolveCommandWindow(ix.getString('range'), ix.getInteger('days'));
+  const ephemeral = ix.getBoolean('private') ?? false;
+
+  await ix.defer(ephemeral);
+  if (!question) {
+    await ix.respondError('⚠️ Ask a question, e.g. `/ask question: what did the team ship this week?`');
+    return;
+  }
+  try {
+    const built = await build(config, secrets, { question, windowHours, log });
+    // Anonymous: a question was asked, its window, whether it was answerable, and
+    // whether it was private. NEVER the question text or any content.
+    void telemetry.track('ask_run', {
+      trigger: 'command',
+      windowHours: windowHours ?? config.windowHours,
+      grounded: built.grounded,
+      private: ephemeral,
+    });
+    await ix.respond(toEmbeds(built.markdown));
+    log(
+      `inky: /ask answered for ${ix.user} (${describeWindow(windowHours)}${built.grounded ? '' : ', not answerable from the window'}${ephemeral ? ', private' : ''}).`,
+    );
+  } catch (err) {
+    const message = (err as Error).message ?? String(err);
+    log(`inky: /ask failed for ${ix.user}: ${message}`);
+    const safe = message.replace(/\s+/g, ' ').slice(0, 200);
+    try {
+      await ix.respondError(`⚠️ Couldn't answer that: ${safe}`);
+    } catch (replyErr) {
+      log(`inky: failed to send the error reply: ${(replyErr as Error).message}`);
+    }
+  }
+}
+
 export interface RegisterOptions {
   applicationId: string;
   /** Register to one guild (instant) when set; otherwise globally (~1h to appear). */
@@ -223,10 +320,10 @@ export interface RegisterOptions {
   put?: (route: string, body: unknown) => Promise<void>;
 }
 
-/** Register (PUT) the `/standup` command with Discord — guild-scoped or global. */
+/** Register (PUT) the `/standup` and `/ask` commands with Discord — guild-scoped or global. */
 export async function registerCommands(opts: RegisterOptions): Promise<void> {
   const log = opts.log ?? (() => {});
-  const body = [buildStandupCommand().toJSON()];
+  const body = [buildStandupCommand().toJSON(), buildAskCommand().toJSON()];
   const put =
     opts.put ??
     (async (route: string, payload: unknown) => {
@@ -240,7 +337,7 @@ export async function registerCommands(opts: RegisterOptions): Promise<void> {
   await put(route, body);
   log(
     opts.guildId
-      ? `inky: registered /${STANDUP_COMMAND_NAME} to guild ${opts.guildId} (instant).`
-      : `inky: registered /${STANDUP_COMMAND_NAME} globally (can take up to ~1h to appear).`,
+      ? `inky: registered /${STANDUP_COMMAND_NAME} + /${ASK_COMMAND_NAME} to guild ${opts.guildId} (instant).`
+      : `inky: registered /${STANDUP_COMMAND_NAME} + /${ASK_COMMAND_NAME} globally (can take up to ~1h to appear).`,
   );
 }

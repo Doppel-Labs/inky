@@ -15,7 +15,7 @@ import { loadConfig, loadSecrets, resolveWebhookUrl } from './config.js';
 import { resolveWindow } from './window.js';
 import { configFeatureFlags, createTelemetry } from './telemetry.js';
 
-const COMMANDS = ['collect', 'standup', 'serve', 'register-commands'] as const;
+const COMMANDS = ['collect', 'standup', 'ask', 'serve', 'register-commands'] as const;
 const PROVIDERS = ['anthropic', 'groq', 'openai'] as const;
 type Provider = (typeof PROVIDERS)[number];
 const FORMATS = ['prose', 'bullets'] as const;
@@ -30,8 +30,9 @@ issues) and writes the standup automatically — no human input.
 Usage:
   inky collect [opts]              Fetch and normalize org activity (prints JSON)
   inky standup [opts] [--dry-run]  Build and deliver the standup once
-  inky serve [opts] [--once]       Scheduled posts + the /standup bot, forever
-  inky register-commands [opts]    Register the /standup slash command
+  inky ask "<question>" [opts]     Answer a question about the activity (grounded)
+  inky serve [opts] [--once]       Scheduled posts + the /standup & /ask bot, forever
+  inky register-commands [opts]    Register the /standup & /ask slash commands
   inky help                        Show this help
 
 Window (default: config windowHours, ending now):
@@ -63,9 +64,10 @@ Examples:
   inky standup --days 1                   Post a daily standup to Discord
   inky standup --days 7 --stats           Post a weekly with the team stats panel
   inky standup --since 2026-06-01 --until 2026-06-02   Replay an exact past window
+  inky ask "what shipped this week?" --days 7 --dry-run   Grounded answer, printed
   inky serve                              Run the scheduler (+ bot) on its own, forever
   inky serve --once --dry-run             Test one scheduled cycle, printed not posted
-  inky register-commands                  Register the /standup slash command (once)
+  inky register-commands                  Register the /standup & /ask slash commands (once)
 
 Environment:
   GITHUB_TOKEN         GitHub PAT / fine-grained token (repo read)
@@ -93,6 +95,8 @@ interface ParsedArgs {
   dryRun: boolean;
   once: boolean;
   mechanical: boolean;
+  /** The positional question for `ask` (joined from non-flag tokens). */
+  question?: string;
   windowHours?: number;
   /** Window end (collect's `now`); set by --until so a past window can be replayed. */
   windowEnd?: Date;
@@ -135,6 +139,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   let trends: boolean | undefined;
   let roadmap: boolean | undefined;
   let format: Format | undefined;
+  const questionParts: string[] = [];
   for (let i = 0; i < rest.length; i++) {
     if (rest[i] === '--config') {
       const next = rest[i + 1];
@@ -182,6 +187,11 @@ function parseArgs(argv: string[]): ParsedArgs {
       once = true;
     } else if (rest[i] === '--mechanical') {
       mechanical = true;
+    } else if (command === 'ask' && !rest[i]!.startsWith('-')) {
+      // `ask` takes a positional question: quoted as one token, or several bare
+      // words joined with spaces. Flags are still parsed above; only non-flag
+      // tokens land here.
+      questionParts.push(rest[i]!);
     } else {
       usage();
     }
@@ -204,6 +214,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     dryRun,
     once,
     mechanical,
+    question: questionParts.length ? questionParts.join(' ') : undefined,
     windowHours,
     windowEnd,
     model,
@@ -217,7 +228,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 }
 
 async function main(): Promise<void> {
-  const { command, configPath, dryRun, once, mechanical, windowHours, windowEnd, model, provider, stats, statsPerPerson, trends, roadmap, format } =
+  const { command, configPath, dryRun, once, mechanical, question, windowHours, windowEnd, model, provider, stats, statsPerPerson, trends, roadmap, format } =
     parseArgs(process.argv.slice(2));
   let config = loadConfig(configPath);
   // CLI overrides (for quick A/B). Switching provider drops the configured
@@ -276,6 +287,41 @@ async function main(): Promise<void> {
       const { messages, embeds } = await postStandupToDiscord(webhookUrl, markdown);
       console.error(`standup: posted ${embeds} embed(s) in ${messages} message(s) to Discord.`);
       await telemetry.track('standup_run', { trigger: 'command', windowHours: win, dryRun: false, ...flags });
+      break;
+    }
+    case 'ask': {
+      if (!question) {
+        console.error('inky ask: provide a question, e.g. inky ask "what did the team ship this week?"');
+        usage();
+      }
+      const { buildAnswer } = await import('./ask.js');
+      const built = await buildAnswer(config, secrets, {
+        question,
+        windowHours,
+        now: windowEnd,
+        log: (m) => console.error(m),
+      });
+
+      const webhookUrl = resolveWebhookUrl(config, secrets);
+      const printOnly = dryRun || !webhookUrl;
+      // Awaited so this one-shot's event flushes before exit. No question text —
+      // only scalar counts (window, answerable, dry-run).
+      await telemetry.track('ask_run', {
+        trigger: 'command',
+        windowHours: windowHours ?? config.windowHours,
+        grounded: built.grounded,
+        dryRun: printOnly,
+      });
+      if (printOnly) {
+        if (!webhookUrl && !dryRun) {
+          console.error('ask: no Discord webhook configured — printing instead.');
+        }
+        process.stdout.write(built.markdown);
+        break;
+      }
+      const { postStandupToDiscord } = await import('./discord.js');
+      const { messages, embeds } = await postStandupToDiscord(webhookUrl, built.markdown);
+      console.error(`ask: posted ${embeds} embed(s) in ${messages} message(s) to Discord.`);
       break;
     }
     case 'serve': {

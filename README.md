@@ -72,14 +72,15 @@ for a secure, least-privilege (read-only) setup.
 
 ## Commands
 
-Run **`inky help`** for the full reference. There are four commands:
+Run **`inky help`** for the full reference. There are five commands:
 
 | Command | What it does |
 |---|---|
 | `inky collect` | Fetch + normalize org activity, print as JSON (debugging). |
 | `inky standup` | Build the standup once and post it (or print with `--dry-run`). |
-| `inky serve` | Run forever: scheduled posts **+** the `/standup` bot. |
-| `inky register-commands` | Register the `/standup` slash command (run once). |
+| `inky ask "<question>"` | Answer a question about the activity, grounded in the digest (or print with `--dry-run`). |
+| `inky serve` | Run forever: scheduled posts **+** the `/standup` & `/ask` bot. |
+| `inky register-commands` | Register the `/standup` & `/ask` slash commands (run once). |
 
 - **Window** (default = config `windowHours`, ending now): `--days N` · `--hours N` · `--since <ISO>` · `--until <ISO>`. Pair `--since`/`--until` for an exact past window, e.g. `--since 2026-06-01 --until 2026-06-02`.
 - **Report**: `--stats` / `--no-stats` · `--stats-per-person` · `--roadmap` / `--no-roadmap` · `--format prose|bullets` · `--mechanical` (skip the AI).
@@ -92,6 +93,7 @@ inky standup --dry-run                              # preview today (nothing pos
 inky standup --days 1                               # post a daily standup
 inky standup --days 7 --stats                       # weekly, with the team stats panel
 inky standup --since 2026-06-01 --until 2026-06-02  # replay an exact past window
+inky ask "what shipped this week?" --days 7 --dry-run   # grounded answer, printed
 inky serve                                          # run on a schedule, forever
 inky serve --once --dry-run                         # test one scheduled cycle, printed
 ```
@@ -285,6 +287,24 @@ each falling back to `inky.config.json`. Add **`private:true`** to get the reply
 activity without posting it to the channel. Enable it by setting `DISCORD_BOT_TOKEN`
 + `discord.applicationId`, running `inky register-commands` once, then
 `inky serve`. Full walkthrough: [`docs/discord-bot-setup.md`](docs/discord-bot-setup.md).
+
+### Ask Inky about the work: the `/ask` slash command
+
+The same bot answers **`/ask`** — a grounded question about the team's recent
+activity, instead of the full standup:
+
+```
+/ask question:what did the team ship this week? range:This week
+/ask question:what's still in flight on the api? private:true   # only you see it
+```
+
+Inky answers **only from the window's verified activity** (the same factual digest
+the standup is built from): it cites real PRs, repos, and people, and if the answer
+isn't in that activity it says so rather than guessing. Great for *"what shipped?"*,
+*"what's in flight on X?"*, *"who reviewed Y?"*. It can't yet answer questions that
+need code diffs or per-PR timing (e.g. *"why did #42 take so long?"*) — those come
+with the agentic follow-up tier. `/ask` needs an LLM key (there's no mechanical
+fallback). The CLI form is `inky ask "<question>" [--days N] [--dry-run]`.
 
 ## Telemetry (opt-in, off by default)
 
