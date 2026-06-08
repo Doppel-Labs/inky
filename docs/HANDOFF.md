@@ -29,6 +29,9 @@ a paid hosted tier later.
 ## Ground truth (re-read first; prefer over memory)
 - `docs/planning/inky-project-plan.md` — §9 decisions log, §10 current status.
 - `docs/planning/roadmap-and-phase-6.md` — next steps (3 tracks) + Phase 6 design.
+- `docs/planning/loc-accuracy-cleaning.md` — **DONE** (committed on `feat/loc-merge-cap-cleaning`):
+  per-commit LOC cap (`maxCommitLines`, default 300k) + merge-commit exclusion (`isMerge`), via a
+  pure `cleanCommitChurn` helper in `github.ts`. LOC-only; commit/day counts unchanged.
 - `docs/deployment.md`, `docs/discord-bot-setup.md`, `docs/github-token-setup.md`.
 - `docs/reviews/phase4-review.md`, `docs/research/agentic-coding-metrics.md`.
 
