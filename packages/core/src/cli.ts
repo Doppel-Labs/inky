@@ -110,6 +110,8 @@ interface ParsedArgs {
   /** undefined = config.roadmap.enabled; true/false = forced by --roadmap/--no-roadmap. */
   roadmap?: boolean;
   format?: Format;
+  /** serve: watch the config file and hot-reload on change. Default true; --no-watch disables. */
+  watch: boolean;
 }
 
 function parsePositiveNumber(raw: string | undefined): number {
@@ -139,6 +141,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   let trends: boolean | undefined;
   let roadmap: boolean | undefined;
   let format: Format | undefined;
+  let watch = true;
   const questionParts: string[] = [];
   for (let i = 0; i < rest.length; i++) {
     if (rest[i] === '--config') {
@@ -177,6 +180,8 @@ function parseArgs(argv: string[]): ParsedArgs {
       roadmap = true;
     } else if (rest[i] === '--no-roadmap') {
       roadmap = false;
+    } else if (rest[i] === '--no-watch') {
+      watch = false;
     } else if (rest[i] === '--format') {
       const next = rest[++i];
       if (!next || !FORMATS.includes(next as Format)) usage();
@@ -224,11 +229,12 @@ function parseArgs(argv: string[]): ParsedArgs {
     trends,
     roadmap,
     format,
+    watch,
   };
 }
 
 async function main(): Promise<void> {
-  const { command, configPath, dryRun, once, mechanical, question, windowHours, windowEnd, model, provider, stats, statsPerPerson, trends, roadmap, format } =
+  const { command, configPath, dryRun, once, mechanical, question, windowHours, windowEnd, model, provider, stats, statsPerPerson, trends, roadmap, format, watch } =
     parseArgs(process.argv.slice(2));
   let config = loadConfig(configPath);
   // CLI overrides (for quick A/B). Switching provider drops the configured
@@ -341,7 +347,28 @@ async function main(): Promise<void> {
       // Scheduled posting — runs when a webhook is configured (or in --dry-run).
       const webhookUrl = resolveWebhookUrl(config, secrets);
       if (webhookUrl || dryRun) {
-        const worker = await startWorker(config, secrets, { dryRun, log: (m) => console.error(m), telemetry });
+        // Hot-reload the config file (unless --no-watch): pick up schedule/setting
+        // edits without a restart. The `read` re-applies any --provider/--model
+        // overrides so a reload doesn't silently drop them. (On a read-only mount
+        // like a Render Secret File the file can't change, so this just no-ops.)
+        let configWatch;
+        if (watch) {
+          const { fileConfigSource } = await import('./config-source.js');
+          configWatch = fileConfigSource(configPath, {
+            read: (p) => {
+              let c = loadConfig(p);
+              if (provider) c = { ...c, provider, model: undefined };
+              if (model) c = { ...c, model };
+              return c;
+            },
+          }).watch;
+        }
+        const worker = await startWorker(config, secrets, {
+          dryRun,
+          log: (m) => console.error(m),
+          telemetry,
+          watch: configWatch,
+        });
         stops.push(worker.stop);
       }
 

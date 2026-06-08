@@ -84,7 +84,7 @@ Run **`inky help`** for the full reference. There are five commands:
 
 - **Window** (default = config `windowHours`, ending now): `--days N` · `--hours N` · `--since <ISO>` · `--until <ISO>`. Pair `--since`/`--until` for an exact past window, e.g. `--since 2026-06-01 --until 2026-06-02`.
 - **Report**: `--stats` / `--no-stats` · `--stats-per-person` · `--roadmap` / `--no-roadmap` · `--format prose|bullets` · `--mechanical` (skip the AI).
-- **Other**: `--config <path>` · `--provider <p>` · `--model <id>` · `--dry-run` · `--once` (serve: one cycle then exit).
+- **Other**: `--config <path>` · `--provider <p>` · `--model <id>` · `--dry-run` · `--once` (serve: one cycle then exit) · `--no-watch` (serve: don't hot-reload the config file).
 
 ### Common recipes
 
