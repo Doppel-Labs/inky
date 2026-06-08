@@ -40,13 +40,19 @@ On a host, supply it as a mounted/secret file and point the worker at it with
 - **Run a single instance** — each one posts on the schedule, so two would double-post.
 
 ## Change the schedule, repos, or settings
-Edit the config file (or your host's Secret File) and restart:
+Edit the config file:
 - **Schedules:** `schedule.jobs[]` — each entry is a `cron` + optional `windowHours`
   + `label`. Shared `schedule.timezone` (IANA name). Run daily *and* weekly by
   listing two jobs.
 - **Repos:** `repos: []` = all non-archived org repos; or list specific ones.
   `staleDays: "auto"` skips repos with no push in the run's window.
-- Then redeploy / restart.
+
+**`serve` hot-reloads a writable config file** — it polls the `--config` path and, when the
+schedule changes, rebuilds the cron jobs **without a restart** (a malformed edit is logged and
+ignored; the previous config keeps running). Pass `--no-watch` to disable. **Exception:** a host
+that mounts the config **read-only** (e.g. a Render Secret File) can't change at runtime — there
+you still edit the Secret File and **redeploy/restart**. The no-redeploy path for such hosts is the
+DB config source (see `docs/planning/admin-configurable-schedule-and-console.md`).
 
 ## Change or add the Discord channel
 Scheduled posts follow `DISCORD_WEBHOOK_URL`, and **a webhook is bound to one channel**:

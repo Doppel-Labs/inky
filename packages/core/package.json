@@ -11,6 +11,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./config": "./src/config.ts",
+    "./config-source": "./src/config-source.ts",
     "./types": "./src/types.ts",
     "./standup": "./src/standup.ts",
     "./telemetry": "./src/telemetry.ts"

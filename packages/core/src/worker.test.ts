@@ -100,3 +100,78 @@ test('handle.stop() stops every scheduled job', async () => {
   handle.stop();
   assert.equal(stopped, 2);
 });
+
+// ── Hot reload (opts.watch) ──
+
+const single = (cron: string) => ({
+  timezone: 'America/New_York',
+  jobs: [{ cron, windowHours: 24, label: 'daily' }],
+});
+
+test('hot reload reschedules cron jobs when the schedule changes', async () => {
+  let stopped = 0;
+  const { factory, captured } = captureScheduler(() => ({ nextRun: () => null, stop: () => void stopped++ }));
+  let fire!: (c: Config) => void;
+  await startWorker(cfg({ schedule: dailyWeekly }), secretsWithHook, {
+    scheduler: factory,
+    runJob: async () => {},
+    log: () => {},
+    watch: (onChange) => {
+      fire = onChange;
+      return () => {};
+    },
+  });
+  assert.equal(captured.length, 2); // daily + weekly at boot
+
+  fire(cfg({ schedule: single('0 9 * * *') }));
+  assert.equal(stopped, 2); // the two boot jobs were torn down
+  assert.equal(captured.length, 3); // one new job scheduled
+  assert.equal(captured[2]!.pattern, '0 9 * * *');
+});
+
+test('hot reload with an unchanged schedule does not reschedule', async () => {
+  const { factory, captured } = captureScheduler();
+  let fire!: (c: Config) => void;
+  await startWorker(cfg({ schedule: dailyWeekly }), secretsWithHook, {
+    scheduler: factory,
+    runJob: async () => {},
+    log: () => {},
+    watch: (onChange) => {
+      fire = onChange;
+      return () => {};
+    },
+  });
+  // Same schedule, different unrelated field — must NOT rebuild cron jobs.
+  fire(cfg({ schedule: dailyWeekly, model: 'some-other-model' }));
+  assert.equal(captured.length, 2);
+});
+
+test('a config reload error is swallowed — the worker stays alive', async () => {
+  const logs: string[] = [];
+  const { factory } = captureScheduler();
+  let onErr!: (e: Error) => void;
+  await startWorker(cfg(), secretsWithHook, {
+    scheduler: factory,
+    runJob: async () => {},
+    log: (m) => logs.push(m),
+    watch: (_onChange, onError) => {
+      onErr = onError;
+      return () => {};
+    },
+  });
+  assert.doesNotThrow(() => onErr(new Error('bad json')));
+  assert.ok(logs.some((l) => /reload error/.test(l)));
+});
+
+test('handle.stop() unsubscribes the config watch', async () => {
+  let unsub = 0;
+  const { factory } = captureScheduler();
+  const handle = await startWorker(cfg(), secretsWithHook, {
+    scheduler: factory,
+    runJob: async () => {},
+    log: () => {},
+    watch: () => () => void unsub++,
+  });
+  handle.stop();
+  assert.equal(unsub, 1);
+});
