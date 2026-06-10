@@ -1,0 +1,35 @@
+{
+  "name": "@inky/worker",
+  "version": "0.0.1",
+  "description": "Inky's hosted worker — reads its Config from Postgres (the tenant rows the dashboard writes) and hot-reloads it, so schedule/setting changes take effect with no redeploy. The no-redeploy alternative to `inky serve --config <file>` (which stays the zero-Postgres self-host path). Depends on both @inky/core and @inky/db, which is why the DB config source is wired here rather than in core.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "bin": {
+    "inky-worker": "./dist/index.js",
+    "inky-worker-seed": "./dist/seed.js"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./seed": "./src/seed.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "tsx src/index.ts",
+    "seed": "tsx src/seed.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test \"src/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@inky/core": "workspace:*",
+    "@inky/db": "workspace:*",
+    "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.38.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.1",
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

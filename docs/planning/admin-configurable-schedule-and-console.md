@@ -76,15 +76,20 @@ with no redeploy. Lives in @inky/db (depends on core, not vice-versa), so core n
 Postgres. Tests: db 22 (+4).
 
 **Remaining for Phase B:**
-- **PAT-tenant support.** `loadTenantConfigByOrg`/`upsertTenantConfig` currently *require* GitHub
-  App auth (`appId`+`installationId`). The live deploy uses a PAT, so backing it with the DB source
-  needs this assumption relaxed (allow a tenant with no installation row).
-- **App-level wiring.** Core's `serve` can't construct `dbConfigSource` (that'd make core depend on
-  db — circular). The "run the hosted worker off the DB" wiring belongs in an app that depends on
-  both (e.g. `apps/ingest` or a new `apps/worker`): build `dbConfigSource(db, org)` and pass its
-  `.watch` to `startWorker`. This is the small integration step that flips Render onto the DB.
-- **Admin API.** Authenticated `GET /config` + `PATCH /config` (Zod-validated) writing via
-  `upsertTenantConfig`; secrets stay in env. On write → the worker's poll picks it up.
+- ✅ **PAT-tenant support (done).** `upsertTenantConfig`/`loadTenantConfigByOrg` now accept a tenant
+  with no GitHub App: App tenants write an installation row, PAT tenants write none and auth falls
+  back to the env `GITHUB_TOKEN` (the PAT is never stored). +2 db tests.
+- ✅ **App-level wiring (done).** Core's `serve` body is extracted into `runServe()`
+  (`packages/core/src/serve.ts`, exported at `@inky/core/serve`), taking an optional `watch`. A new
+  **`apps/worker`** (depends on core + db) loads the tenant config, builds `dbConfigSource(db, org)`,
+  and calls `runServe(config, secrets, { watch: source.watch })` — plus an `inky-worker-seed` to
+  populate/update the DB row. +6 worker tests, +4 runServe tests. The `inky serve` CLI now also
+  routes through `runServe` (file source), behavior-preserved.
+- ⏳ **Render cutover (ops, operator's hands).** Provision `DATABASE_URL`, apply migrations, seed
+  once, switch the worker start command to `apps/worker`. See `apps/worker/README.md`.
+- ⏳ **Admin API (Phase B/C boundary).** Authenticated `GET /config` + `PATCH /config`
+  (Zod-validated) writing via `upsertTenantConfig`; secrets stay in env. On write → the worker's
+  poll picks it up. (Interim admin write path today = re-run the seed with an edited config.)
 
 ### Phase C — Web console
 A thin UI over the Phase-B API: edit the schedule (cron builder / "run on these days at this time"

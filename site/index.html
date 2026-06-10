@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Inky — your standup, written by a small, well-read octopus</title>
+<meta name="description" content="Inky reads what your team shipped on GitHub and Linear and writes the daily standup for you. No meeting, no typing — grounded, open-source, and signed by an octopus." />
+<meta name="theme-color" content="#5865F2" />
+<link rel="icon" href="assets/inky-logo.svg" type="image/svg+xml" />
+<link rel="icon" href="assets/inky-logo.png" sizes="any" />
+<link rel="apple-touch-icon" href="assets/inky-logo-1024.png" />
+<!-- Social cards. Replace https://inky.example with your deployed domain so og:url/og:image are absolute. -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Inky" />
+<meta property="og:title" content="Inky — your standup, written by a small, well-read octopus" />
+<meta property="og:description" content="Inky reads what your team shipped on GitHub and Linear and writes the daily standup for you. No meeting, no typing." />
+<meta property="og:url" content="https://inky.example/" />
+<meta property="og:image" content="https://inky.example/assets/inky-banner.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Inky — your standup, written by a small, well-read octopus" />
+<meta name="twitter:description" content="Reads GitHub & Linear, writes the daily standup. No meeting, no typing. Open-source." />
+<meta name="twitter:image" content="https://inky.example/assets/inky-banner.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#FBFBFE; --surface:#FFFFFF; --tint:#EEF0FE; --wash:#F4F5FD;
+    --blurple:#5865F2; --blurple-deep:#4A54E0; --blurple-soft:#9AA0F8;
+    --ink:#23272A; --muted:#5A6472; --faint:#677085; /* faint darkened from #929AAB for WCAG AA (~5:1) */ --hairline:#E7E9F4;
+    --ok:#2FB67D; --at-risk:#EF9A36; --untracked:#929AAB;
+    --shadow:0 12px 34px -12px rgba(88,101,242,.28); --shadow-sm:0 6px 18px -8px rgba(35,39,42,.18);
+    --display:'Bricolage Grotesque',Georgia,serif; --body:'Hanken Grotesk',system-ui,sans-serif; --mono:'JetBrains Mono',monospace;
+    --maxw:1140px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg); color:var(--ink); font-family:var(--body); line-height:1.6; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; overflow-x:hidden}
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 28px}
+  .mono{font-family:var(--mono)}
+  h1,h2,h3,.wm{font-family:var(--display)}
+
+  /* ---- mascot ---- */
+  .eye{transform-box:fill-box; transform-origin:center; animation:blink 6s infinite}
+  .eye.r{animation-delay:.08s}
+  @keyframes blink{0%,93%,100%{transform:scaleY(1)} 96.5%{transform:scaleY(.12)}}
+  .float{animation:bob 6s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0) rotate(-1.5deg)} 50%{transform:translateY(-10px) rotate(1.5deg)}}
+  @media(prefers-reduced-motion:reduce){.eye,.float{animation:none}}
+
+  /* ---- nav ---- */
+  nav{position:sticky; top:0; z-index:50; background:rgba(251,251,254,.82); backdrop-filter:blur(12px); border-bottom:1px solid transparent; transition:border-color .3s}
+  nav.scrolled{border-bottom-color:var(--hairline)}
+  .navin{display:flex; align-items:center; justify-content:space-between; padding:15px 28px; max-width:var(--maxw); margin:0 auto}
+  .brand{display:flex; align-items:center; gap:11px; font-family:var(--display); font-weight:600; font-size:21px; color:var(--ink)}
+  .brand .logo{width:32px; height:32px; border-radius:9px; box-shadow:var(--shadow-sm)}
+  .navlinks{display:flex; gap:30px; align-items:center}
+  .navlinks a:not(.btn){color:var(--muted); text-decoration:none; font-size:15px; font-weight:500; transition:color .2s}
+  .navlinks a:not(.btn):hover{color:var(--ink)}
+  @media(max-width:820px){.navlinks .hideable{display:none}}
+
+  .btn{font-family:var(--body); font-weight:600; font-size:15px; border:none; cursor:pointer; border-radius:12px; padding:12px 20px; text-decoration:none; display:inline-flex; align-items:center; gap:9px; transition:transform .16s, box-shadow .25s, background .2s, border-color .2s}
+  .btn-primary{background:var(--blurple); color:#fff}
+  .btn-primary:hover{background:var(--blurple-deep); transform:translateY(-1px)}
+  .btn-soft{background:var(--tint); color:var(--blurple); }
+  .btn-soft:hover{background:#E4E7FD}
+  .btn-lg{padding:15px 26px; font-size:16px; border-radius:14px}
+  .tlink{color:var(--blurple); text-decoration:none; font-weight:600; font-size:15px; display:inline-flex; gap:7px; align-items:center; transition:gap .2s}
+  .tlink:hover{gap:11px}
+
+  /* ---- hero ---- */
+  .hero{display:grid; grid-template-columns:1.05fr .95fr; gap:48px; align-items:center; padding:72px 0 36px}
+  @media(max-width:900px){.hero{grid-template-columns:1fr; text-align:center; gap:36px} .hero .heroart{order:-1}}
+  .tag{display:inline-flex; align-items:center; gap:9px; background:var(--tint); color:var(--blurple); font-weight:600; font-size:13px; padding:7px 14px; border-radius:999px; margin-bottom:24px}
+  .tag .d{width:7px;height:7px;border-radius:50%;background:var(--blurple)}
+  h1{font-weight:600; font-size:clamp(40px,5.6vw,62px); line-height:1.03; letter-spacing:-.025em; font-variation-settings:'opsz' 60}
+  h1 .hl{color:var(--blurple)}
+  .hero .sub{color:var(--muted); font-size:19px; line-height:1.6; max-width:520px; margin:22px 0 0}
+  @media(max-width:900px){.hero .sub{margin-left:auto;margin-right:auto}}
+  .hero .sub b{color:var(--ink); font-weight:600}
+  .cta{display:flex; gap:16px; align-items:center; margin-top:32px; flex-wrap:wrap}
+  @media(max-width:900px){.cta{justify-content:center}}
+  .trust{margin-top:26px; color:var(--faint); font-size:14px; display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+  @media(max-width:900px){.trust{justify-content:center}}
+  .trust b{color:var(--muted); font-weight:600}
+
+  /* hero art: Inky presenting a standup card */
+  .heroart{position:relative; display:flex; justify-content:center}
+  .halo{position:absolute; inset:0; margin:auto; width:340px; height:340px; border-radius:50%; background:radial-gradient(circle, rgba(88,101,242,.16), transparent 68%); top:-30px}
+  .bigmascot{width:150px; position:relative; z-index:3; margin-bottom:-26px; filter:drop-shadow(0 14px 20px rgba(88,101,242,.28))}
+
+  /* ---- standup card ---- */
+  .card{background:var(--surface); border:1px solid var(--hairline); border-radius:20px; box-shadow:var(--shadow); overflow:hidden; text-align:left; width:100%; max-width:430px; position:relative; z-index:2}
+  .card-head{display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--hairline); background:var(--wash)}
+  .card-head .t{font-family:var(--display); font-weight:600; font-size:16px; display:flex; align-items:center; gap:9px}
+  .card-head .t .logo{width:22px;height:22px;border-radius:6px}
+  .card-head .time{font-family:var(--mono); font-size:11.5px; color:var(--faint)}
+  .card-body{padding:18px 20px}
+  .narr{font-size:14.5px; line-height:1.6; color:var(--ink); margin-bottom:18px}
+  .narr .m{font-family:var(--mono); font-size:12.5px; color:var(--blurple); font-weight:600}
+  .seclabel{font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint); margin-bottom:12px}
+  .row{display:flex; gap:11px; align-items:baseline; padding:7px 0}
+  .row + .row{border-top:1px solid var(--hairline)}
+  .pill{font-size:11.5px; font-weight:600; padding:3px 9px; border-radius:999px; white-space:nowrap; display:inline-flex; align-items:center; gap:6px; flex:none}
+  .pill .g{width:7px;height:7px;border-radius:50%}
+  .p-ok{background:rgba(47,182,125,.12); color:#1F8E5F} .p-ok .g{background:var(--ok)}
+  .p-risk{background:rgba(239,154,54,.14); color:#C2761A} .p-risk .g{background:var(--at-risk)}
+  .p-un{background:#EEF0F4; color:#6B7382} .p-un .g{background:var(--untracked)}
+  .rm{font-size:13.5px; color:var(--muted); line-height:1.4}
+  .rm .ref{font-family:var(--mono); font-size:12px; color:var(--ink); font-weight:600}
+  .cyc{margin-top:14px; padding-top:13px; border-top:1px solid var(--hairline)}
+  .cyc-top{display:flex; justify-content:space-between; align-items:baseline; font-size:12px; color:var(--muted); margin-bottom:7px}
+  .cyc-top .mono{font-size:11px; color:var(--faint)}
+  .bar{height:6px; background:var(--tint); border-radius:999px; overflow:hidden}
+  .bar span{display:block; height:100%; background:linear-gradient(90deg,var(--blurple-soft),var(--blurple)); border-radius:999px}
+  .card-foot{display:flex; align-items:center; justify-content:space-between; padding:13px 20px; border-top:1px solid var(--hairline); background:var(--wash); font-size:12px; color:var(--muted)}
+  .card-foot .lo{display:flex; align-items:center; gap:8px} .card-foot .logo{width:18px;height:18px;border-radius:5px}
+
+  /* ---- wave divider (the tentacle hem motif) ---- */
+  .wave{display:block; width:100%; height:38px; color:var(--tint)}
+  .waveband{background:var(--wash)}
+
+  /* ---- sections ---- */
+  section{padding:92px 0}
+  .center{text-align:center}
+  .eyebrow{font-family:var(--mono); font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--blurple); font-weight:600; margin-bottom:16px}
+  h2{font-weight:600; font-size:clamp(30px,4.2vw,44px); line-height:1.08; letter-spacing:-.02em; font-variation-settings:'opsz' 48}
+  .lead{color:var(--muted); font-size:18px; line-height:1.6; max-width:560px; margin:16px 0 0}
+  .center .lead{margin-left:auto;margin-right:auto}
+
+  /* steps */
+  .steps{display:grid; grid-template-columns:repeat(3,1fr); gap:20px; margin-top:50px}
+  @media(max-width:820px){.steps{grid-template-columns:1fr}}
+  .step{background:var(--surface); border:1px solid var(--hairline); border-radius:18px; padding:26px 26px 28px; box-shadow:var(--shadow-sm); text-align:left; position:relative}
+  .step .ic{width:44px;height:44px;margin-bottom:18px}
+  .step .ic svg{width:44px;height:44px;border-radius:12px;display:block;box-shadow:var(--shadow-sm)}
+  .step h3{font-size:19px; font-weight:600; margin-bottom:9px; letter-spacing:-.01em}
+  .step p{color:var(--muted); font-size:14.5px; line-height:1.6; max-width:30ch}
+  .timesaved{text-align:center; margin-top:34px; font-size:16px; color:var(--muted)}
+  .timesaved b{color:var(--blurple); font-weight:700}
+
+  /* quad */
+  .quad{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:46px}
+  @media(max-width:760px){.quad{grid-template-columns:1fr}}
+  .qc{background:var(--surface); border:1px solid var(--hairline); border-radius:16px; padding:24px; box-shadow:var(--shadow-sm)}
+  .qc .qt{font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); margin-bottom:12px; display:block}
+  .qc .qh{display:flex; align-items:center; gap:9px; font-weight:600; font-size:16px; margin-bottom:7px}
+  .qc .qh .g{width:10px;height:10px;border-radius:50%}
+  .qc p{color:var(--muted); font-size:14px; line-height:1.5}
+
+  /* ask */
+  .askgrid{display:grid; grid-template-columns:1fr 1.05fr; gap:50px; align-items:center; margin-top:18px}
+  @media(max-width:860px){.askgrid{grid-template-columns:1fr; gap:32px}}
+  .chat{background:var(--surface); border:1px solid var(--hairline); border-radius:20px; box-shadow:var(--shadow); overflow:hidden}
+  .chat-head{display:flex; align-items:center; gap:11px; padding:14px 18px; border-bottom:1px solid var(--hairline); background:var(--wash)}
+  .chat-head .logo{width:30px;height:30px;border-radius:8px}
+  .chat-head .nm{font-weight:600; font-size:15px; font-family:var(--display)}
+  .chat-head .st{font-size:11.5px; color:var(--ok); font-family:var(--mono); display:flex; align-items:center; gap:5px}
+  .chat-head .st::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--ok)}
+  .chat-body{padding:18px; display:flex; flex-direction:column; gap:13px; background:linear-gradient(180deg,var(--wash),var(--surface))}
+  .msg{max-width:84%; font-size:14px; line-height:1.5; padding:11px 14px; border-radius:15px}
+  .msg.q{align-self:flex-end; background:var(--blurple); color:#fff; border-bottom-right-radius:5px}
+  .msg.a{align-self:flex-start; background:var(--surface); border:1px solid var(--hairline); color:var(--ink); border-bottom-left-radius:5px}
+  .msg.a .ref{font-family:var(--mono); font-size:12px; color:var(--blurple); font-weight:600}
+  .chat-foot{padding:11px 18px; border-top:1px solid var(--hairline); font-size:11.5px; color:var(--faint); display:flex; align-items:center; gap:7px}
+  .chat-foot .logo{width:15px;height:15px;border-radius:4px}
+
+  /* sources — one octopus, lots of arms */
+  .armwrap{position:relative; margin-top:50px; display:flex; flex-direction:column; align-items:center; gap:24px}
+  .armmascot{width:96px; filter:drop-shadow(0 12px 18px rgba(88,101,242,.26))}
+  .chips{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; width:100%; max-width:740px}
+  @media(max-width:640px){.chips{grid-template-columns:repeat(2,1fr)}}
+  .chip{display:flex; align-items:center; gap:11px; background:var(--surface); border:1px solid var(--hairline); border-radius:14px; padding:14px 16px; box-shadow:var(--shadow-sm); font-weight:600; font-size:15px; min-width:0}
+  .chip .lg{width:22px;height:22px;color:var(--ink);flex:none}
+  .chip small{display:block; font-family:var(--mono); font-size:11px; color:var(--faint); font-weight:500}
+  .chip.soon .lg{color:var(--faint)} /* de-emphasize the (decorative) logo only; keep text at full AA contrast */
+
+  /* pricing */
+  .tiers{display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin-top:50px; align-items:stretch}
+  @media(max-width:860px){.tiers{grid-template-columns:1fr}}
+  .tier{background:var(--surface); border:1px solid var(--hairline); border-radius:20px; padding:30px 28px; display:flex; flex-direction:column; box-shadow:var(--shadow-sm); transition:transform .2s}
+  .tier:hover{transform:translateY(-3px)}
+  .tier.feat{border:2px solid var(--blurple); box-shadow:var(--shadow); position:relative}
+  .tier.feat .badge{position:absolute; top:-12px; left:28px; background:var(--blurple); color:#fff; font-size:11px; font-weight:700; padding:4px 11px; border-radius:999px; font-family:var(--mono); letter-spacing:.04em}
+  .tier .pn{font-family:var(--display); font-weight:600; font-size:21px}
+  .tier .price{font-family:var(--display); font-size:42px; font-weight:600; margin:12px 0 2px; letter-spacing:-.02em}
+  .tier .price .per{font-family:var(--mono); font-size:14px; color:var(--muted); font-weight:400}
+  .tier .desc{color:var(--muted); font-size:14px; min-height:42px; margin-bottom:18px; line-height:1.5}
+  .tier ul{list-style:none; display:flex; flex-direction:column; gap:11px; margin:4px 0 24px; flex:1}
+  .tier li{font-size:14px; color:var(--ink); display:flex; gap:10px; align-items:flex-start; line-height:1.45}
+  .tier li svg{width:17px;height:17px;flex:none;margin-top:2px;color:var(--blurple)}
+  .tier li.muted{color:var(--muted)} .tier li.muted svg{color:var(--faint)}
+  .tier .btn{justify-content:center}
+
+  /* final */
+  .final{background:linear-gradient(160deg, #5865F2, #4A54E0); border-radius:28px; padding:64px 32px; text-align:center; color:#fff; position:relative; overflow:hidden; margin:36px 0}
+  .final .bigmascot{margin:0 auto 18px; display:block}
+  .final h2{color:#fff} .final p{color:rgba(255,255,255,.86); font-size:18px; max-width:480px; margin:14px auto 28px}
+  .final .btn-white{background:#fff; color:var(--blurple)} .final .btn-white:hover{background:#F0F1FE}
+  .final .wisp{position:absolute; border-radius:50%; background:rgba(255,255,255,.08)}
+  .final .w1{width:240px;height:240px;left:-60px;bottom:-90px} .final .w2{width:160px;height:160px;right:-40px;top:-50px}
+
+  /* footer */
+  footer{border-top:1px solid var(--hairline); padding:48px 0; color:var(--faint); font-size:13px}
+  .footin{display:flex; justify-content:space-between; gap:30px; flex-wrap:wrap}
+  .footin .brand{margin-bottom:10px}
+  .sig{max-width:250px; line-height:1.55; color:var(--muted); font-size:13.5px}
+  .footcols{display:flex; gap:54px; flex-wrap:wrap}
+  .footcol h4{font-size:12px; text-transform:uppercase; letter-spacing:.09em; color:var(--ink); margin-bottom:13px; font-weight:700}
+  .footcol a{display:block; color:var(--muted); text-decoration:none; font-size:13.5px; margin-bottom:9px; transition:color .2s}
+  .footcol a:hover{color:var(--blurple)}
+
+  .reveal{opacity:0; transform:translateY(16px); transition:opacity .8s cubic-bezier(.2,.7,.2,1), transform .8s cubic-bezier(.2,.7,.2,1)}
+  .reveal.in{opacity:1; transform:none}
+  @media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
+  a:focus-visible,button:focus-visible{outline:2.5px solid var(--blurple); outline-offset:3px; border-radius:8px}
+  .skip{position:absolute; left:-9999px; top:10px; z-index:200; background:var(--blurple); color:#fff; padding:11px 18px; border-radius:10px; font-weight:600; text-decoration:none}
+  .skip:focus{left:14px}
+
+  /* small-screen spacing + type polish (layout stacking handled by the per-section queries above) */
+  @media(max-width:600px){
+    .wrap{padding:0 18px}
+    section{padding:64px 0}
+    .hero{padding:44px 0 20px}
+    .hero h1{font-size:clamp(33px,8.6vw,46px); line-height:1.06}
+    h2{font-size:clamp(26px,7.4vw,38px)}
+    .hero .sub,.lead{font-size:16.5px}
+    .navin{padding:13px 18px}
+    .step{padding:24px 22px}
+    .tier{padding:28px 24px}
+    .final{padding:52px 22px; border-radius:22px}
+    .chat-body{padding:16px 14px}
+  }
+</style>
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<!-- ===== mascot defs (the real Inky icon) ===== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <!-- the app-tile logo -->
+  <symbol id="tile" viewBox="0 0 256 256">
+    <rect width="256" height="256" rx="56" fill="#5865F2"/>
+    <path fill="#fff" d="M128 48 C90 48 62 76 62 114 V150 c0 0 -2 14 -14 20 c-8 5 -4 16 6 16 c12 0 20 -6 24 -14 c4 9 10 14 18 14 c8 0 13 -5 16 -13 c3 8 9 13 16 13 c7 0 13 -5 16 -13 c3 8 8 13 16 13 c8 0 14 -5 18 -14 c4 8 12 14 24 14 c10 0 14 -11 6 -16 c-12 -6 -14 -20 -14 -20 V114 C194 76 166 48 128 48 Z"/>
+    <circle cx="110" cy="116" r="11" fill="#23272A"/><circle cx="146" cy="116" r="11" fill="#23272A"/>
+    <circle cx="114" cy="112" r="3.5" fill="#fff"/><circle cx="150" cy="112" r="3.5" fill="#fff"/>
+    <path d="M120 138 q8 8 16 0" stroke="#23272A" stroke-width="4" fill="none" stroke-linecap="round"/>
+  </symbol>
+  <!-- source logos (monochrome, fill=currentColor) — GitHub/Linear/Notion via Simple Icons, Granola via svgl -->
+  <symbol id="lg-github" viewBox="0 0 24 24"><path fill="currentColor" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></symbol>
+  <symbol id="lg-linear" viewBox="0 0 24 24"><path fill="currentColor" d="M2.886 4.18A11.982 11.982 0 0 1 11.99 0C18.624 0 24 5.376 24 12.009c0 3.64-1.62 6.903-4.18 9.105L2.887 4.18ZM1.817 5.626l16.556 16.556c-.524.33-1.075.62-1.65.866L.951 7.277c.247-.575.537-1.126.866-1.65ZM.322 9.163l14.515 14.515c-.71.172-1.443.282-2.195.322L0 11.358a12 12 0 0 1 .322-2.195Zm-.17 4.862 9.823 9.824a12.02 12.02 0 0 1-9.824-9.824Z"/></symbol>
+  <symbol id="lg-notion" viewBox="0 0 24 24"><path fill="currentColor" d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.981-.7-2.055-.607L3.01 2.295c-.466.046-.56.28-.374.466zm.793 3.08v13.904c0 .747.373 1.027 1.214.98l14.523-.84c.841-.046.935-.56.935-1.167V6.354c0-.606-.233-.933-.748-.887l-15.177.887c-.56.047-.747.327-.747.933zm14.337.745c.093.42 0 .84-.42.888l-.7.14v10.264c-.608.327-1.168.514-1.635.514-.748 0-.935-.234-1.495-.933l-4.577-7.186v6.952L12.21 19s0 .84-1.168.84l-3.222.186c-.093-.186 0-.653.327-.746l.84-.233V9.854L7.822 9.76c-.094-.42.14-1.026.793-1.073l3.456-.233 4.764 7.279v-6.44l-1.215-.139c-.093-.514.28-.887.747-.933zM1.936 1.035l13.31-.98c1.634-.14 2.055-.047 3.082.7l4.249 2.986c.7.513.934.653.934 1.213v16.378c0 1.026-.373 1.634-1.68 1.726l-15.458.934c-.98.047-1.448-.093-1.962-.747l-3.129-4.06c-.56-.747-.793-1.306-.793-1.96V2.667c0-.839.374-1.54 1.447-1.632z"/></symbol>
+  <symbol id="lg-granola" viewBox="0 0 32 32"><path fill="currentColor" d="M15.826 31.9139C19.126 31.9139 22.586 31.1819 23.979 30.1679C24.869 29.5339 25.311 29.5959 26.104 28.8379C26.324 28.6159 26.421 28.5509 26.484 28.4879C29.497 26.0119 31.243 22.8079 31.243 18.6519C31.243 11.8919 26.453 7.29194 19.599 7.29194C13.57 7.29194 8.969 11.1299 8.969 16.0479C8.969 20.5219 12.459 23.7259 17.439 23.7259C17.726 23.7259 17.854 23.5669 18.171 23.5669C19.378 23.5669 20.361 23.2189 20.996 22.5529C21.313 22.2049 21.916 21.5049 21.979 21.4729C22.265 21.2179 22.327 20.8389 22.393 20.6799C22.455 20.5219 22.583 20.4249 22.648 20.2039C22.71 19.9489 22.617 19.6319 22.617 19.3489C22.617 18.8419 22.837 18.3349 22.837 17.8589C22.837 16.5279 21.251 15.1929 19.823 15.1929C19.664 15.1929 19.664 15.0649 19.568 15.0649C19.471 15.0649 19.378 15.1619 19.282 15.1619C19.185 15.1619 19.061 15.0029 18.933 15.0029C18.805 15.0029 18.743 15.1309 18.553 15.1309C18.14 15.1309 18.109 15.1929 17.792 15.1929C17.6833 15.1962 17.5759 15.2171 17.474 15.2549C17.347 15.3169 17.347 15.4139 17.219 15.4139C17.049 15.4139 16.964 15.4459 16.964 15.5099C16.964 15.8589 16.995 15.7969 16.836 15.7969C16.666 15.7969 16.5603 15.8069 16.519 15.8269C16.391 15.8899 16.488 16.0479 16.36 16.1449C16.233 16.2069 16.202 16.3039 16.17 16.4929C16.14 16.6829 15.95 16.7479 15.95 16.9379C15.95 17.0349 15.981 17.0969 15.981 17.1579C15.981 17.3479 15.601 17.2859 15.601 17.4759C15.601 17.6039 15.698 17.6959 15.698 17.8249C15.698 17.9209 15.636 17.9829 15.636 18.0799C15.636 18.1759 15.698 18.2379 15.698 18.2999C15.698 18.4599 15.478 18.4899 15.478 18.6179C15.478 18.7449 15.605 18.8379 15.605 18.9349C15.605 18.9969 15.508 19.0319 15.508 19.1249C15.508 19.2179 15.478 19.0629 15.668 19.3449C15.795 19.5349 15.795 19.6319 15.668 19.7899C15.54 19.9499 15.288 20.0459 14.971 20.0459C13.639 20.0459 13.481 18.6799 12.749 18.4589C12.529 18.3969 12.494 18.3629 12.494 18.2689C12.494 18.1759 12.494 18.2069 12.622 18.0789C12.749 17.9519 12.78 17.8589 12.78 17.7619C12.78 17.6659 12.78 17.6349 12.718 17.5719C12.463 17.1589 12.338 16.6519 12.338 16.0819C12.338 13.1649 15.891 10.7199 19.258 10.7199C20.272 10.7199 20.113 10.9749 20.717 10.9749C20.875 10.9749 20.813 10.9749 21.034 10.9439C21.606 10.8469 22.651 11.0709 23.476 11.4819C25.759 12.6239 27.252 15.3209 27.252 18.4619C27.252 23.8259 22.492 27.7269 16.147 27.7269C12.687 27.7269 10.307 26.6469 7.959 24.0149C7.704 23.7289 8.086 24.0779 7.672 23.3499C7.165 22.4599 7.228 23.0319 7.228 23.0319C7.068 22.8419 6.783 22.3019 6.624 22.1119C6.434 21.8909 6.179 21.9219 6.086 21.7939C5.958 21.6359 6.148 21.3489 6.086 21.1909C6.024 20.9359 5.482 20.5559 5.42 20.3659C5.358 20.1759 5.134 18.9699 5.134 18.7489C5.134 18.4939 5.324 18.4629 5.324 18.3039C5.324 18.0839 5.037 18.0179 4.879 17.6999C4.72 17.3829 4.624 16.6519 4.624 15.8589C4.624 15.4449 4.624 15.2859 4.751 14.3339C4.782 14.0169 5.258 14.0169 5.258 13.6689C5.258 13.5409 5.196 13.3819 5.196 13.2889C5.196 13.1619 5.196 13.1299 5.227 13.0339C6.558 7.44994 12.525 3.29394 19.157 3.29394C21.441 3.29394 23.186 3.70794 25.883 4.84994C26.773 5.22894 28.073 4.56294 28.073 3.86694C28.135 3.64594 28.011 3.57994 27.977 3.45294C27.945 3.32494 27.817 3.16594 27.69 3.13494C27.628 3.10494 27.594 3.00794 27.532 2.91494C27.435 2.75594 27.342 2.69394 27.087 2.62794C26.9906 2.6132 26.9011 2.56882 26.831 2.50094C26.7597 2.3923 26.6611 2.30435 26.545 2.24594C26.418 2.18294 26.325 2.24594 26.259 2.21494C26.197 2.18294 26.162 2.11794 26.1 2.08694C26.07 2.05594 26.004 2.05594 25.91 2.05594C22.71 0.341938 20.616 0.0859375 17.826 0.0859375C11.797 0.0859375 6.403 2.68994 3.072 7.22594C2.785 7.60594 2.944 8.23994 2.534 8.62294C1.74 9.35294 0.757004 13.3499 0.757004 15.8899C0.757004 18.0139 1.264 20.8389 1.93 22.3939C3.23 25.4399 2.661 24.1709 2.85 24.4569C3.23 25.0599 3.548 25.1219 3.706 25.3119C3.706 25.3119 3.803 25.5019 3.803 25.6919C3.803 25.8189 3.803 25.8499 3.833 25.9119C3.93 26.1019 4.372 26.4189 4.499 26.5469C4.786 26.8329 5.006 27.4369 5.482 27.9129C6.214 28.6429 7.259 29.2129 10.59 30.7679C11.763 31.3059 11.097 31.0239 11.225 31.0549C11.511 31.1509 11.891 31.1509 12.115 31.3099C12.242 31.4069 12.084 31.3719 12.432 31.3719C12.494 31.3719 12.494 31.4029 12.56 31.4339C12.622 31.4649 12.687 31.5619 12.78 31.5619C12.843 31.5619 12.877 31.4999 12.97 31.5309C13.063 31.5609 13.287 31.7209 13.477 31.8169C13.636 31.9129 13.667 31.9129 13.732 31.8479C13.922 31.7199 14.05 31.8789 14.239 31.8789C14.301 31.8789 14.398 31.8479 14.588 31.8479C14.843 31.8479 14.843 31.9099 15.826 31.9099Z"/></symbol>
+</svg>
+
+<!-- big animated mascot (white body, blink) — markup reused by JS clones -->
+<template id="mascot">
+  <svg viewBox="0 0 256 256" class="bigmascot" aria-hidden="true" focusable="false">
+    <path fill="#fff" stroke="#E7E9F4" stroke-width="2" d="M128 48 C90 48 62 76 62 114 V150 c0 0 -2 14 -14 20 c-8 5 -4 16 6 16 c12 0 20 -6 24 -14 c4 9 10 14 18 14 c8 0 13 -5 16 -13 c3 8 9 13 16 13 c7 0 13 -5 16 -13 c3 8 8 13 16 13 c8 0 14 -5 18 -14 c4 8 12 14 24 14 c10 0 14 -11 6 -16 c-12 -6 -14 -20 -14 -20 V114 C194 76 166 48 128 48 Z"/>
+    <circle class="eye" cx="110" cy="116" r="11" fill="#23272A"/><circle class="eye r" cx="146" cy="116" r="11" fill="#23272A"/>
+    <circle cx="114" cy="112" r="3.5" fill="#fff"/><circle cx="150" cy="112" r="3.5" fill="#fff"/>
+    <path d="M120 138 q8 8 16 0" stroke="#23272A" stroke-width="4" fill="none" stroke-linecap="round"/>
+  </svg>
+</template>
+
+<nav id="nav">
+  <div class="navin">
+    <div class="brand"><svg class="logo" aria-hidden="true"><use href="#tile"/></svg> Inky</div>
+    <div class="navlinks">
+      <a class="hideable" href="#how">How it works</a>
+      <a class="hideable" href="#ask">Ask Inky</a>
+      <a class="hideable" href="#sources">Sources</a>
+      <a class="hideable" href="#pricing">Pricing</a>
+      <a class="btn btn-primary" href="https://github.com/Doppel-Labs/inky">Add to Discord</a>
+    </div>
+  </div>
+</nav>
+
+<main id="main">
+<div class="wrap">
+  <header class="hero">
+    <div>
+      <span class="tag">Reads GitHub &amp; Linear · writes the standup</span>
+      <h1>Your standup, written by a <span class="hl">small, well-read octopus.</span></h1>
+      <p class="sub">Inky reads what your team actually shipped — every commit, PR and review — and writes the daily standup <b>for you</b>. No meeting. No typing. Just the facts, every morning.</p>
+      <div class="cta">
+        <a class="btn btn-primary btn-lg" href="https://github.com/Doppel-Labs/inky">Add Inky to Discord</a>
+        <a class="tlink" href="#ask">Peek at a standup →</a>
+      </div>
+      <div class="trust"><b>Read-only</b> &amp; open-source · set up in two minutes · <b>nobody types a word</b></div>
+    </div>
+    <div class="heroart">
+      <div class="halo"></div>
+      <div style="display:flex;flex-direction:column;align-items:center;width:100%">
+        <span class="float" data-mascot></span>
+        <article class="card">
+          <div class="card-head"><span class="t"><svg class="logo" aria-hidden="true"><use href="#tile"/></svg> Daily Standup</span><span class="time">Fri 09:00</span></div>
+          <div class="card-body">
+            <p class="narr">Yesterday the team merged <span class="m">4 PRs</span> and opened <span class="m">2</span> — mostly the billing refactor. Reviews kept pace.</p>
+            <div class="seclabel">Status vs plan · Cycle 23</div>
+            <div class="row"><span class="pill p-ok"><span class="g"></span>On track</span><span class="rm">Auth refactor <span class="ref">#142</span> · <span class="ref">PR #318</span> merged</span></div>
+            <div class="row"><span class="pill p-ok"><span class="g"></span>On track</span><span class="rm">Webhook retries <span class="ref">#150</span> · <span class="ref">PR #321</span> merged</span></div>
+            <div class="row"><span class="pill p-risk"><span class="g"></span>At risk</span><span class="rm">Search index <span class="ref">#147</span> · no PR yet, 4d idle</span></div>
+            <div class="row"><span class="pill p-un"><span class="g"></span>Untracked</span><span class="rm"><span class="ref">PR #324</span> rate-limit fix · no linked issue</span></div>
+            <div class="cyc"><div class="cyc-top"><span>Cycle 23 · 60% elapsed</span><span class="mono">40% of points merged</span></div><div class="bar"><span style="width:40%"></span></div></div>
+          </div>
+          <div class="card-foot"><span class="lo"><svg class="logo" aria-hidden="true"><use href="#tile"/></svg> Written by Inky</span><span>Facts only — nothing invented</span></div>
+        </article>
+      </div>
+    </div>
+  </header>
+</div>
+
+<svg class="wave" viewBox="0 0 1200 38" preserveAspectRatio="none" aria-hidden="true"><path fill="currentColor" d="M0 38 V18 q50 20 100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0 V38 Z"/></svg>
+<div class="waveband">
+  <div class="wrap">
+    <section id="how" class="center" style="padding-top:64px">
+      <div class="eyebrow reveal">How it works</div>
+      <h2 class="reveal">It's a little uncanny how little you do.</h2>
+      <p class="lead reveal">Async standups still make everyone type their update. Inky doesn't — the work already lives in your tools, so it reads it and writes the standup. You just read it.</p>
+      <div class="steps">
+        <div class="step reveal"><div class="ic"><svg viewBox="0 0 256 256" aria-hidden="true"><use href="#tile"/></svg></div><h3>Say hi, once</h3><p>Add the GitHub App, connect Linear, drop Inky in a Discord channel. Read-only and least-privilege — about two minutes.</p></div>
+        <div class="step reveal"><div class="ic"><svg viewBox="0 0 256 256" aria-hidden="true"><use href="#tile"/></svg></div><h3>Inky reads up</h3><p>Every commit, PR, review and issue, collected and de-duplicated. It counts the work; it never guesses a number.</p></div>
+        <div class="step reveal"><div class="ic"><svg viewBox="0 0 256 256" aria-hidden="true"><use href="#tile"/></svg></div><h3>The standup appears</h3><p>Per-person and project-wide, with status vs plan — waiting in your channel before the first coffee.</p></div>
+      </div>
+      <p class="timesaved reveal">No meeting, no typing — about <b>4 hours a week</b> back for a team of ten.</p>
+    </section>
+  </div>
+</div>
+<svg class="wave" viewBox="0 0 1200 38" preserveAspectRatio="none" aria-hidden="true" style="transform:scaleY(-1);color:var(--wash)"><path fill="currentColor" d="M0 38 V18 q50 20 100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0 V38 Z"/></svg>
+
+<div class="wrap">
+  <section id="status">
+    <div class="eyebrow reveal">Planned vs shipped</div>
+    <h2 class="reveal">What you meant to do, next to what you did.</h2>
+    <p class="lead reveal">Inky lines your tracker up against your code and tells you where things really stand — including the work that never got a ticket. It classifies; it never invents a link.</p>
+    <div class="quad">
+      <div class="qc reveal"><span class="qt">Planned · Shipped</span><div class="qh"><span class="g" style="background:var(--ok)"></span>On track</div><p>The issue has a PR behind it and it's moving. The happy case — Inky just confirms it.</p></div>
+      <div class="qc reveal"><span class="qt">Planned · Not shipped</span><div class="qh"><span class="g" style="background:var(--at-risk)"></span>At risk</div><p>A committed issue with no code yet. A gentle heads-up, never an alarm.</p></div>
+      <div class="qc reveal"><span class="qt">Shipped · Not planned</span><div class="qh"><span class="g" style="background:var(--untracked)"></span>Untracked</div><p>Real work that shipped with no ticket. Surfaced as signal — flagging the work, never the person.</p></div>
+      <div class="qc reveal"><span class="qt">The honest gap</span><div class="qh" style="color:var(--muted)">No guessing</div><p>If nothing links a PR to an issue, Inky says so. “I didn't guess” is a feature, not a bug.</p></div>
+    </div>
+  </section>
+
+  <section id="ask">
+    <div class="askgrid">
+      <div>
+        <div class="eyebrow reveal">Ask Inky</div>
+        <h2 class="reveal">Go on, ask. It actually read the code.</h2>
+        <p class="lead reveal">Inky answers from the real commits, PRs and issues — fetched live, never made up. Ask in the channel, or quietly by DM when you just want to check in on the week.</p>
+      </div>
+      <div class="chat reveal">
+        <div class="chat-head"><svg class="logo" aria-hidden="true"><use href="#tile"/></svg><div><div class="nm">Inky</div><div class="st">read everything</div></div></div>
+        <div class="chat-body">
+          <div class="msg q">what's PR #324, and why no ticket?</div>
+          <div class="msg a"><span class="ref">PR #324</span> adds rate-limiting to the webhook handler — a token bucket plus 6 tests, merged this morning with one review. No linked issue, so it reads as an unplanned fix, not part of Cycle 23.</div>
+          <div class="msg q">is search index landing this cycle?</div>
+          <div class="msg a">Doesn't look on track — <span class="ref">#147</span> has had no PR activity in 4 days and the cycle's 60% gone. Nothing's been pushed at it yet. Worth a nudge.</div>
+        </div>
+        <div class="chat-foot"><svg class="logo" aria-hidden="true"><use href="#tile"/></svg> Answers come from fetched activity — nothing invented.</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="sources" class="center">
+    <div class="eyebrow reveal">One octopus, lots of arms</div>
+    <h2 class="reveal">It reaches into everything your team uses.</h2>
+    <p class="lead reveal">Inky started on GitHub. Now it reaches into Linear too — and soon your docs and meetings — so the standup reflects the whole picture, not just the commits.</p>
+    <div class="armwrap reveal">
+      <span class="float" data-mascot data-sm></span>
+      <div class="chips">
+        <div class="chip"><svg class="lg" aria-hidden="true"><use href="#lg-github"/></svg><div>GitHub<small>execution · live</small></div></div>
+        <div class="chip"><svg class="lg" aria-hidden="true"><use href="#lg-linear"/></svg><div>Linear<small>the plan · next</small></div></div>
+        <div class="chip soon"><svg class="lg" aria-hidden="true"><use href="#lg-notion"/></svg><div>Notion<small>specs · soon</small></div></div>
+        <div class="chip soon"><svg class="lg" aria-hidden="true"><use href="#lg-granola"/></svg><div>Granola<small>meetings · soon</small></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="pricing" class="center">
+    <div class="eyebrow reveal">Pricing</div>
+    <h2 class="reveal">Free forever if you self-host. Friendly if you don't.</h2>
+    <p class="lead reveal">Self-host free, forever. Hosted is in <b style="color:var(--ink);font-weight:700">early access</b> — per team, not per seat, with a contributor cap. No “contact sales,” ever. Join the waitlist and we'll bring you on.</p>
+    <div class="tiers" style="text-align:left">
+      <div class="tier reveal"><div class="pn">Self-host</div><div class="price">$0</div><div class="desc">The whole standup, on your own infra. MIT-licensed, read-only.</div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>Daily + weekly standups</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>Status vs plan (milestones)</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>GitHub App, your own keys</li>
+          <li class="muted"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>You run the worker</li>
+        </ul><a class="btn btn-soft" href="https://github.com/Doppel-Labs/inky">View on GitHub</a></div>
+      <div class="tier reveal"><div class="pn">Starter</div><div class="price">$19<span class="per">/mo</span></div><div class="desc">Hosted and zero-maintenance, bring your own LLM key.</div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>Managed hosting + dashboard</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>Slack or Discord delivery</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>Daily + weekly + status vs plan</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>Up to ~10 contributors</li>
+        </ul><a class="btn btn-soft" href="https://inky.example/waitlist">Join the waitlist</a></div>
+      <div class="tier feat reveal"><span class="badge">most teams</span><div class="pn">Pro</div><div class="price">$49<span class="per">/mo</span></div><div class="desc">Hosted, managed keys, and the parts you can't self-host.</div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>Everything in Starter</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg><b style="font-weight:700">Ask Inky</b> — grounded Q&amp;A</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>Private manager DM digests</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>History, trends &amp; Linear status</li>
+        </ul><a class="btn btn-primary" href="https://inky.example/waitlist">Join the waitlist</a></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="final reveal">
+      <span class="wisp w1"></span><span class="wisp w2"></span>
+      <span class="float" data-mascot></span>
+      <h2>Give your team back their mornings.</h2>
+      <p>Inky's already read everything. Add it to Discord and tomorrow's standup writes itself.</p>
+      <a class="btn btn-white btn-lg" href="https://github.com/Doppel-Labs/inky">Add Inky to Discord</a>
+    </div>
+  </section>
+</div>
+</main>
+
+<footer>
+  <div class="wrap footin">
+    <div>
+      <div class="brand"><svg class="logo" aria-hidden="true"><use href="#tile"/></svg> Inky</div>
+      <p class="sig">Your standup, written by a small, well-read octopus. Open-source and friendly.</p>
+    </div>
+    <div class="footcols">
+      <div class="footcol"><h4>Product</h4><a href="#how">How it works</a><a href="#ask">Ask Inky</a><a href="#sources">Sources</a><a href="#pricing">Pricing</a></div>
+      <div class="footcol"><h4>Open source</h4><a href="https://github.com/Doppel-Labs/inky">GitHub repo</a><a href="https://github.com/Doppel-Labs/inky">Self-host guide</a><a href="https://github.com/Doppel-Labs/inky">Docs</a><a href="https://github.com/Doppel-Labs/inky">Changelog</a></div>
+      <div class="footcol"><h4>Compare</h4><a href="https://github.com/Doppel-Labs/inky">vs Geekbot</a><a href="https://github.com/Doppel-Labs/inky">vs a webhook</a><a href="https://github.com/Doppel-Labs/inky">vs DIY agent</a></div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // clone the animated mascot into each [data-mascot] slot, sized per context
+  const tpl=document.getElementById('mascot').content;
+  document.querySelectorAll('[data-mascot]').forEach(slot=>{
+    const svg=tpl.firstElementChild.cloneNode(true);
+    if(slot.hasAttribute('data-sm')) svg.style.width='96px';
+    if(slot.closest('.final')){ svg.style.width='84px'; svg.querySelector('path').setAttribute('stroke','rgba(255,255,255,.0)'); }
+    slot.replaceWith(svg); svg.classList.add('float');
+  });
+  const nav=document.getElementById('nav');
+  addEventListener('scroll',()=>nav.classList.toggle('scrolled',scrollY>8),{passive:true});
+  const io=new IntersectionObserver(es=>es.forEach((e,i)=>{if(e.isIntersecting){setTimeout(()=>e.target.classList.add('in'),(i%3)*70);io.unobserve(e.target);}}),{threshold:.15,rootMargin:'0px 0px -8% 0px'});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+</script>
+</body>
+</html>

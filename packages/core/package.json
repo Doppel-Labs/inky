@@ -12,6 +12,7 @@
     ".": "./src/index.ts",
     "./config": "./src/config.ts",
     "./config-source": "./src/config-source.ts",
+    "./serve": "./src/serve.ts",
     "./types": "./src/types.ts",
     "./standup": "./src/standup.ts",
     "./telemetry": "./src/telemetry.ts"
