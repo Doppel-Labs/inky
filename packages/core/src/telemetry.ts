@@ -38,8 +38,13 @@ export const TELEMETRY_EVENTS = [
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
 /** Props are deliberately scalar-only — a structural guarantee that no nested
- *  identity payload (a login list, a repo map, content) can ride along. */
-export const TelemetryPropValueSchema = z.union([z.string(), z.number(), z.boolean()]);
+ *  identity payload (a login list, a repo map, content) can ride along. String
+ *  values are length-capped too: every real prop is a short flag/enum (a few
+ *  chars), so a tight cap makes the envelope structurally unable to carry content. */
+export const TelemetryPropValueSchema = z.union([z.string().max(64), z.number(), z.boolean()]);
+
+/** Max distinct prop keys on one event (real events use ≤6). */
+const MAX_PROP_KEYS = 16;
 export type TelemetryProps = Record<string, z.infer<typeof TelemetryPropValueSchema>>;
 
 /** The complete event envelope — the wire contract shared with the ingest.
@@ -52,7 +57,10 @@ export const TelemetryEventSchema = z.object({
   version: z.string().max(64).optional(),
   /** Unix seconds (client clock). */
   ts: z.number().int().positive(),
-  props: z.record(z.string(), TelemetryPropValueSchema).optional(),
+  props: z
+    .record(z.string().max(64), TelemetryPropValueSchema)
+    .refine((o) => Object.keys(o).length <= MAX_PROP_KEYS, 'too many props')
+    .optional(),
 });
 export type TelemetryEvent = z.infer<typeof TelemetryEventSchema>;
 

@@ -39,6 +39,9 @@ const server = createServer((req, res) => {
   let size = 0;
   const chunks: Buffer[] = [];
   let aborted = false;
+  // req.destroy() (the over-cap path) emits 'error' on the request stream; with
+  // no listener that's an unhandled error on some Node versions. Absorb it.
+  req.on('error', () => {});
   req.on('data', (chunk: Buffer) => {
     size += chunk.length;
     if (size > MAX_BODY_BYTES) {

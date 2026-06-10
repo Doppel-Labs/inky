@@ -37,6 +37,23 @@ test('TelemetryEventSchema rejects non-scalar props (no nested identity payloads
   assert.ok(!r.success, 'arrays/objects in props must be rejected');
 });
 
+test('TelemetryEventSchema rejects a long string prop value (content cannot ride along)', () => {
+  const r = TelemetryEventSchema.safeParse({
+    event: 'ask_run',
+    instanceId: 'abc',
+    ts: 1,
+    props: { question: 'x'.repeat(65) }, // a real prop value is a short flag, not prose
+  });
+  assert.ok(!r.success, 'string prop values over the cap must be rejected');
+});
+
+test('TelemetryEventSchema rejects an over-large props bag (key-count cap)', () => {
+  const props: Record<string, number> = {};
+  for (let i = 0; i < 17; i++) props[`k${i}`] = i;
+  const r = TelemetryEventSchema.safeParse({ event: 'heartbeat', instanceId: 'abc', ts: 1, props });
+  assert.ok(!r.success, 'more than the key cap must be rejected');
+});
+
 // --- feature flags carry no identities --------------------------------------
 
 test('configFeatureFlags emits coarse modes only, no values', () => {

@@ -280,11 +280,14 @@ export async function handleAskCommand(
   const ephemeral = ix.getBoolean('private') ?? false;
 
   await ix.defer(ephemeral);
-  if (!question) {
-    await ix.respondError('⚠️ Ask a question, e.g. `/ask question: what did the team ship this week?`');
-    return;
-  }
   try {
+    if (!question) {
+      // Discord enforces the required option, but the handler is tested directly —
+      // keep the guard inside try so a failing respondError is caught + logged,
+      // not left as a stranded deferral.
+      await ix.respondError('⚠️ Ask a question, e.g. `/ask question: what did the team ship this week?`');
+      return;
+    }
     const built = await build(config, secrets, { question, windowHours, log });
     // Anonymous: a question was asked, its window, whether it was answerable, and
     // whether it was private. NEVER the question text or any content.
