@@ -7,7 +7,8 @@
   "license": "MIT",
   "//exports": "Internal-monorepo source export (mirrors @inky/core): tsx/tsc resolve the .ts directly so dependents (apps/ingest) typecheck/test without a build step.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

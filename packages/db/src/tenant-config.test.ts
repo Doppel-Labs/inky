@@ -76,8 +76,29 @@ test('loadTenantConfigByOrg returns null for an unknown org', async () => {
   assert.equal(await loadTenantConfigByOrg(db, 'nobody', ENV), null);
 });
 
-test('upsert rejects a config without GitHub App credentials (hosted = App auth)', async () => {
+test('a PAT tenant (no GitHub App) round-trips, with no installation row', async () => {
   const db = await freshDb();
-  const noApp = ConfigSchema.parse({ org: 'o', discord: { webhookUrl: 'https://discord.com/api/webhooks/1/x' } });
-  await assert.rejects(() => upsertTenantConfig(db, noApp, {}, ENV), /GitHub App auth/);
+  const config = ConfigSchema.parse({
+    org: 'pat-org',
+    windowHours: 24,
+    schedule: { timezone: 'America/Los_Angeles', jobs: [{ cron: '0 9 * * *', label: 'daily' }] },
+    discord: { applicationId: '123', guildId: '456' }, // non-secret; webhook stays in env
+  });
+  await upsertTenantConfig(db, config, { name: 'PAT Org' }, ENV);
+
+  const loaded = await loadTenantConfigByOrg(db, 'pat-org', ENV);
+  assert.deepEqual(loaded, config); // github resolves back to {} (env PAT at runtime)
+  assert.deepEqual(loaded?.github, {});
+  assert.equal((await db.select().from(schema.installations)).length, 0); // no App row written
+});
+
+test('switching an App tenant to a PAT tenant drops the stale installation row', async () => {
+  const db = await freshDb();
+  const org = 'flip';
+  await upsertTenantConfig(db, ConfigSchema.parse({ org, github: { appId: '1', installationId: 2 } }), {}, ENV);
+  assert.equal((await db.select().from(schema.installations)).length, 1);
+  // Re-provision the same tenant as PAT (no github App).
+  await upsertTenantConfig(db, ConfigSchema.parse({ org }), {}, ENV);
+  assert.equal((await db.select().from(schema.installations)).length, 0);
+  assert.deepEqual((await loadTenantConfigByOrg(db, org, ENV))?.github, {});
 });

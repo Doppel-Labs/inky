@@ -331,69 +331,31 @@ async function main(): Promise<void> {
       break;
     }
     case 'serve': {
-      const { startWorker } = await import('./worker.js');
-      if (once) {
-        // --once is a single scheduled-post cycle (for testing); no bot loop.
-        await startWorker(config, secrets, { once: true, dryRun, log: (m) => console.error(m), telemetry });
-        break;
+      const { runServe } = await import('./serve.js');
+      // Hot-reload the config file (unless --no-watch): pick up schedule/setting
+      // edits without a restart. The `read` re-applies any --provider/--model
+      // overrides so a reload doesn't silently drop them. (On a read-only mount
+      // like a Render Secret File the file can't change, so this just no-ops; the
+      // DB-backed worker in apps/worker is the no-redeploy path there.)
+      let configWatch;
+      if (!once && watch) {
+        const { fileConfigSource } = await import('./config-source.js');
+        configWatch = fileConfigSource(configPath, {
+          read: (p) => {
+            let c = loadConfig(p);
+            if (provider) c = { ...c, provider, model: undefined };
+            if (model) c = { ...c, model };
+            return c;
+          },
+        }).watch;
       }
-
-      // A long-running deployment is the thing telemetry most wants to count:
-      // fire instance_started once at boot (the worker then pings heartbeats).
-      void telemetry.track('instance_started', configFeatureFlags(config));
-
-      const stops: Array<() => void | Promise<void>> = [];
-
-      // Scheduled posting — runs when a webhook is configured (or in --dry-run).
-      const webhookUrl = resolveWebhookUrl(config, secrets);
-      if (webhookUrl || dryRun) {
-        // Hot-reload the config file (unless --no-watch): pick up schedule/setting
-        // edits without a restart. The `read` re-applies any --provider/--model
-        // overrides so a reload doesn't silently drop them. (On a read-only mount
-        // like a Render Secret File the file can't change, so this just no-ops.)
-        let configWatch;
-        if (watch) {
-          const { fileConfigSource } = await import('./config-source.js');
-          configWatch = fileConfigSource(configPath, {
-            read: (p) => {
-              let c = loadConfig(p);
-              if (provider) c = { ...c, provider, model: undefined };
-              if (model) c = { ...c, model };
-              return c;
-            },
-          }).watch;
-        }
-        const worker = await startWorker(config, secrets, {
-          dryRun,
-          log: (m) => console.error(m),
-          telemetry,
-          watch: configWatch,
-        });
-        stops.push(worker.stop);
-      }
-
-      // On-demand /standup — runs when a bot token is configured.
-      if (secrets.discordBotToken) {
-        const { startBot } = await import('./bot.js');
-        const bot = await startBot(config, secrets, { log: (m) => console.error(m), telemetry });
-        stops.push(bot.stop);
-      }
-
-      if (stops.length === 0) {
-        throw new Error(
-          'inky serve: nothing to run. Set DISCORD_WEBHOOK_URL for scheduled posts and/or DISCORD_BOT_TOKEN for the /standup command.',
-        );
-      }
-
-      // Long-running: keep the process alive and shut down cleanly on signals.
-      const shutdown = async (sig: string) => {
-        console.error(`inky: received ${sig}, stopping…`);
-        await Promise.allSettled(stops.map((stop) => stop()));
-        process.exit(0);
-      };
-      process.on('SIGINT', () => void shutdown('SIGINT'));
-      process.on('SIGTERM', () => void shutdown('SIGTERM'));
-      await new Promise<never>(() => {}); // block forever; the gateway + cron drive the work
+      await runServe(config, secrets, {
+        dryRun,
+        once,
+        watch: configWatch,
+        log: (m) => console.error(m),
+        telemetry,
+      });
       break;
     }
     case 'register-commands': {

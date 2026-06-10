@@ -33,8 +33,8 @@ export async function loadTenantConfigByOrg(
   const [inst] = await db.select().from(installations).where(eq(installations.tenantId, tenant.id)).limit(1);
   const [cfg] = await db.select().from(configs).where(eq(configs.tenantId, tenant.id)).limit(1);
   const [chan] = await db.select().from(channels).where(eq(channels.tenantId, tenant.id)).limit(1);
-  if (!inst || !cfg) {
-    throw new Error(`tenant "${org}" is missing its installation and/or config row — half-provisioned.`);
+  if (!cfg) {
+    throw new Error(`tenant "${org}" is missing its config row — half-provisioned.`);
   }
 
   const discord: Config['discord'] = {};
@@ -45,9 +45,16 @@ export async function loadTenantConfigByOrg(
     if (chan.channelId) discord.channelId = chan.channelId;
   }
 
+  // App tenant -> github { appId, installationId }; PAT tenant (no installation
+  // row) -> github {} so auth falls back to the env GITHUB_TOKEN. The PAT itself
+  // is never stored in the DB.
+  const github: Config['github'] = inst
+    ? { appId: inst.githubAppId, installationId: inst.githubInstallationId }
+    : {};
+
   return assembleConfig({
     org: tenant.githubLogin,
-    github: { appId: inst.githubAppId, installationId: inst.githubInstallationId },
+    github,
     discord,
     settings: cfg.settings,
   });
@@ -58,8 +65,12 @@ export async function loadTenantConfigByOrg(
  * the org, installation + config upserted per tenant, channels replaced (one
  * primary channel written from `config.discord`; the table stays many-per-tenant
  * for the future multi-channel feature). The webhook URL is encrypted before
- * storage. Returns the tenant id. Hosted tenants authenticate as a GitHub App, so
- * `github.appId` + `github.installationId` are required.
+ * storage. Returns the tenant id.
+ *
+ * Two auth shapes are accepted: a **GitHub App** tenant (`github.appId` +
+ * `github.installationId` present) writes an installation row; a **PAT** tenant
+ * (neither present) writes none — auth then falls back to the env `GITHUB_TOKEN`
+ * at runtime, exactly like a file-based config. The PAT is never stored.
  */
 export async function upsertTenantConfig(
   db: AnyDb,
@@ -68,11 +79,7 @@ export async function upsertTenantConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<string> {
   const parts = disassembleConfig(config);
-  if (!parts.github.appId || parts.github.installationId === undefined) {
-    throw new Error('a hosted tenant config requires github.appId and github.installationId (GitHub App auth).');
-  }
-  const appId = parts.github.appId;
-  const installationId = parts.github.installationId;
+  const { appId, installationId } = parts.github;
 
   const [tenant] = await db
     .insert(tenants)
@@ -82,13 +89,18 @@ export async function upsertTenantConfig(
   if (!tenant) throw new Error('failed to upsert tenant row.');
   const tenantId = tenant.id;
 
-  await db
-    .insert(installations)
-    .values({ tenantId, githubAppId: appId, githubInstallationId: installationId })
-    .onConflictDoUpdate({
-      target: installations.tenantId,
-      set: { githubAppId: appId, githubInstallationId: installationId, suspendedAt: null },
-    });
+  if (appId !== undefined && installationId !== undefined) {
+    await db
+      .insert(installations)
+      .values({ tenantId, githubAppId: appId, githubInstallationId: installationId })
+      .onConflictDoUpdate({
+        target: installations.tenantId,
+        set: { githubAppId: appId, githubInstallationId: installationId, suspendedAt: null },
+      });
+  } else {
+    // PAT tenant: ensure no stale installation row lingers (e.g. App -> PAT switch).
+    await db.delete(installations).where(eq(installations.tenantId, tenantId));
+  }
 
   // Replace the tenant's channels with the one described by config.discord.
   await db.delete(channels).where(eq(channels.tenantId, tenantId));
