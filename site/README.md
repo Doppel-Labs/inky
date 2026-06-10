@@ -16,8 +16,11 @@ Local preview: `python3 -m http.server -d site 8080` → http://localhost:8080
 2. **"Add Inky to Discord" buttons:** currently link to the GitHub repo. Swap to the real
    Discord **bot install / OAuth URL** once the app's client id is set
    (`https://discord.com/oauth2/authorize?client_id=…&scope=bot%20applications.commands&permissions=…`).
-3. **"Start free trial" buttons:** the hosted tier isn't live yet (Phase 6). They point to the
-   repo for now — repoint to the hosted signup when it exists, or hide the hosted tiers until then.
+3. **Hosted tiers = waitlist.** The hosted tiers aren't live yet (Phase 6), so their CTAs say
+   **"Join the waitlist"** and point to `https://inky.example/waitlist`. Wire that to a real form
+   (Tally / Google Form / Formspree / your own). The waitlist is deliberate: it captures the demand
+   signal that decides whether to build the hosted tier at all (the Phase-6 go/no-go gate). Self-host's
+   "View on GitHub" is already real.
 
 ## Notes
 - **Fonts** load from Google Fonts (Bricolage Grotesque / Hanken Grotesk / JetBrains Mono) — needs

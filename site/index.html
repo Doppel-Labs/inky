@@ -27,7 +27,7 @@
   :root{
     --bg:#FBFBFE; --surface:#FFFFFF; --tint:#EEF0FE; --wash:#F4F5FD;
     --blurple:#5865F2; --blurple-deep:#4A54E0; --blurple-soft:#9AA0F8;
-    --ink:#23272A; --muted:#5A6472; --faint:#929AAB; --hairline:#E7E9F4;
+    --ink:#23272A; --muted:#5A6472; --faint:#677085; /* faint darkened from #929AAB for WCAG AA (~5:1) */ --hairline:#E7E9F4;
     --ok:#2FB67D; --at-risk:#EF9A36; --untracked:#929AAB;
     --shadow:0 12px 34px -12px rgba(88,101,242,.28); --shadow-sm:0 6px 18px -8px rgba(35,39,42,.18);
     --display:'Bricolage Grotesque',Georgia,serif; --body:'Hanken Grotesk',system-ui,sans-serif; --mono:'JetBrains Mono',monospace;
@@ -173,7 +173,7 @@
   .chip{display:flex; align-items:center; gap:11px; background:var(--surface); border:1px solid var(--hairline); border-radius:14px; padding:14px 16px; box-shadow:var(--shadow-sm); font-weight:600; font-size:15px; min-width:0}
   .chip .lg{width:22px;height:22px;color:var(--ink);flex:none}
   .chip small{display:block; font-family:var(--mono); font-size:11px; color:var(--faint); font-weight:500}
-  .chip.soon{opacity:.62}
+  .chip.soon .lg{color:var(--faint)} /* de-emphasize the (decorative) logo only; keep text at full AA contrast */
 
   /* pricing */
   .tiers{display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin-top:50px; align-items:stretch}
@@ -214,9 +214,28 @@
   .reveal.in{opacity:1; transform:none}
   @media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
   a:focus-visible,button:focus-visible{outline:2.5px solid var(--blurple); outline-offset:3px; border-radius:8px}
+  .skip{position:absolute; left:-9999px; top:10px; z-index:200; background:var(--blurple); color:#fff; padding:11px 18px; border-radius:10px; font-weight:600; text-decoration:none}
+  .skip:focus{left:14px}
+
+  /* small-screen spacing + type polish (layout stacking handled by the per-section queries above) */
+  @media(max-width:600px){
+    .wrap{padding:0 18px}
+    section{padding:64px 0}
+    .hero{padding:44px 0 20px}
+    .hero h1{font-size:clamp(33px,8.6vw,46px); line-height:1.06}
+    h2{font-size:clamp(26px,7.4vw,38px)}
+    .hero .sub,.lead{font-size:16.5px}
+    .navin{padding:13px 18px}
+    .step{padding:24px 22px}
+    .tier{padding:28px 24px}
+    .final{padding:52px 22px; border-radius:22px}
+    .chat-body{padding:16px 14px}
+  }
 </style>
 </head>
 <body>
+
+<a class="skip" href="#main">Skip to content</a>
 
 <!-- ===== mascot defs (the real Inky icon) ===== -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -237,7 +256,7 @@
 
 <!-- big animated mascot (white body, blink) — markup reused by JS clones -->
 <template id="mascot">
-  <svg viewBox="0 0 256 256" class="bigmascot">
+  <svg viewBox="0 0 256 256" class="bigmascot" aria-hidden="true" focusable="false">
     <path fill="#fff" stroke="#E7E9F4" stroke-width="2" d="M128 48 C90 48 62 76 62 114 V150 c0 0 -2 14 -14 20 c-8 5 -4 16 6 16 c12 0 20 -6 24 -14 c4 9 10 14 18 14 c8 0 13 -5 16 -13 c3 8 9 13 16 13 c7 0 13 -5 16 -13 c3 8 8 13 16 13 c8 0 14 -5 18 -14 c4 8 12 14 24 14 c10 0 14 -11 6 -16 c-12 -6 -14 -20 -14 -20 V114 C194 76 166 48 128 48 Z"/>
     <circle class="eye" cx="110" cy="116" r="11" fill="#23272A"/><circle class="eye r" cx="146" cy="116" r="11" fill="#23272A"/>
     <circle cx="114" cy="112" r="3.5" fill="#fff"/><circle cx="150" cy="112" r="3.5" fill="#fff"/>
@@ -247,7 +266,7 @@
 
 <nav id="nav">
   <div class="navin">
-    <div class="brand"><svg class="logo"><use href="#tile"/></svg> Inky</div>
+    <div class="brand"><svg class="logo" aria-hidden="true"><use href="#tile"/></svg> Inky</div>
     <div class="navlinks">
       <a class="hideable" href="#how">How it works</a>
       <a class="hideable" href="#ask">Ask Inky</a>
@@ -258,6 +277,7 @@
   </div>
 </nav>
 
+<main id="main">
 <div class="wrap">
   <header class="hero">
     <div>
@@ -275,7 +295,7 @@
       <div style="display:flex;flex-direction:column;align-items:center;width:100%">
         <span class="float" data-mascot></span>
         <article class="card">
-          <div class="card-head"><span class="t"><svg class="logo"><use href="#tile"/></svg> Daily Standup</span><span class="time">Fri 09:00</span></div>
+          <div class="card-head"><span class="t"><svg class="logo" aria-hidden="true"><use href="#tile"/></svg> Daily Standup</span><span class="time">Fri 09:00</span></div>
           <div class="card-body">
             <p class="narr">Yesterday the team merged <span class="m">4 PRs</span> and opened <span class="m">2</span> — mostly the billing refactor. Reviews kept pace.</p>
             <div class="seclabel">Status vs plan · Cycle 23</div>
@@ -285,7 +305,7 @@
             <div class="row"><span class="pill p-un"><span class="g"></span>Untracked</span><span class="rm"><span class="ref">PR #324</span> rate-limit fix · no linked issue</span></div>
             <div class="cyc"><div class="cyc-top"><span>Cycle 23 · 60% elapsed</span><span class="mono">40% of points merged</span></div><div class="bar"><span style="width:40%"></span></div></div>
           </div>
-          <div class="card-foot"><span class="lo"><svg class="logo"><use href="#tile"/></svg> Written by Inky</span><span>Facts only — nothing invented</span></div>
+          <div class="card-foot"><span class="lo"><svg class="logo" aria-hidden="true"><use href="#tile"/></svg> Written by Inky</span><span>Facts only — nothing invented</span></div>
         </article>
       </div>
     </div>
@@ -300,9 +320,9 @@
       <h2 class="reveal">It's a little uncanny how little you do.</h2>
       <p class="lead reveal">Async standups still make everyone type their update. Inky doesn't — the work already lives in your tools, so it reads it and writes the standup. You just read it.</p>
       <div class="steps">
-        <div class="step reveal"><div class="ic"><svg viewBox="0 0 256 256"><use href="#tile"/></svg></div><h3>Say hi, once</h3><p>Add the GitHub App, connect Linear, drop Inky in a Discord channel. Read-only and least-privilege — about two minutes.</p></div>
-        <div class="step reveal"><div class="ic"><svg viewBox="0 0 256 256"><use href="#tile"/></svg></div><h3>Inky reads up</h3><p>Every commit, PR, review and issue, collected and de-duplicated. It counts the work; it never guesses a number.</p></div>
-        <div class="step reveal"><div class="ic"><svg viewBox="0 0 256 256"><use href="#tile"/></svg></div><h3>The standup appears</h3><p>Per-person and project-wide, with status vs plan — waiting in your channel before the first coffee.</p></div>
+        <div class="step reveal"><div class="ic"><svg viewBox="0 0 256 256" aria-hidden="true"><use href="#tile"/></svg></div><h3>Say hi, once</h3><p>Add the GitHub App, connect Linear, drop Inky in a Discord channel. Read-only and least-privilege — about two minutes.</p></div>
+        <div class="step reveal"><div class="ic"><svg viewBox="0 0 256 256" aria-hidden="true"><use href="#tile"/></svg></div><h3>Inky reads up</h3><p>Every commit, PR, review and issue, collected and de-duplicated. It counts the work; it never guesses a number.</p></div>
+        <div class="step reveal"><div class="ic"><svg viewBox="0 0 256 256" aria-hidden="true"><use href="#tile"/></svg></div><h3>The standup appears</h3><p>Per-person and project-wide, with status vs plan — waiting in your channel before the first coffee.</p></div>
       </div>
       <p class="timesaved reveal">No meeting, no typing — about <b>4 hours a week</b> back for a team of ten.</p>
     </section>
@@ -331,14 +351,14 @@
         <p class="lead reveal">Inky answers from the real commits, PRs and issues — fetched live, never made up. Ask in the channel, or quietly by DM when you just want to check in on the week.</p>
       </div>
       <div class="chat reveal">
-        <div class="chat-head"><svg class="logo"><use href="#tile"/></svg><div><div class="nm">Inky</div><div class="st">read everything</div></div></div>
+        <div class="chat-head"><svg class="logo" aria-hidden="true"><use href="#tile"/></svg><div><div class="nm">Inky</div><div class="st">read everything</div></div></div>
         <div class="chat-body">
           <div class="msg q">what's PR #324, and why no ticket?</div>
           <div class="msg a"><span class="ref">PR #324</span> adds rate-limiting to the webhook handler — a token bucket plus 6 tests, merged this morning with one review. No linked issue, so it reads as an unplanned fix, not part of Cycle 23.</div>
           <div class="msg q">is search index landing this cycle?</div>
           <div class="msg a">Doesn't look on track — <span class="ref">#147</span> has had no PR activity in 4 days and the cycle's 60% gone. Nothing's been pushed at it yet. Worth a nudge.</div>
         </div>
-        <div class="chat-foot"><svg class="logo"><use href="#tile"/></svg> Answers come from fetched activity — nothing invented.</div>
+        <div class="chat-foot"><svg class="logo" aria-hidden="true"><use href="#tile"/></svg> Answers come from fetched activity — nothing invented.</div>
       </div>
     </div>
   </section>
@@ -350,10 +370,10 @@
     <div class="armwrap reveal">
       <span class="float" data-mascot data-sm></span>
       <div class="chips">
-        <div class="chip"><svg class="lg"><use href="#lg-github"/></svg><div>GitHub<small>execution · live</small></div></div>
-        <div class="chip"><svg class="lg"><use href="#lg-linear"/></svg><div>Linear<small>the plan · next</small></div></div>
-        <div class="chip soon"><svg class="lg"><use href="#lg-notion"/></svg><div>Notion<small>specs · soon</small></div></div>
-        <div class="chip soon"><svg class="lg"><use href="#lg-granola"/></svg><div>Granola<small>meetings · soon</small></div></div>
+        <div class="chip"><svg class="lg" aria-hidden="true"><use href="#lg-github"/></svg><div>GitHub<small>execution · live</small></div></div>
+        <div class="chip"><svg class="lg" aria-hidden="true"><use href="#lg-linear"/></svg><div>Linear<small>the plan · next</small></div></div>
+        <div class="chip soon"><svg class="lg" aria-hidden="true"><use href="#lg-notion"/></svg><div>Notion<small>specs · soon</small></div></div>
+        <div class="chip soon"><svg class="lg" aria-hidden="true"><use href="#lg-granola"/></svg><div>Granola<small>meetings · soon</small></div></div>
       </div>
     </div>
   </section>
@@ -361,7 +381,7 @@
   <section id="pricing" class="center">
     <div class="eyebrow reveal">Pricing</div>
     <h2 class="reveal">Free forever if you self-host. Friendly if you don't.</h2>
-    <p class="lead reveal">Open-source and yours to run. Or let Inky host it — priced per team, not per seat, with a contributor cap. No “contact sales,” ever.</p>
+    <p class="lead reveal">Self-host free, forever. Hosted is in <b style="color:var(--ink);font-weight:700">early access</b> — per team, not per seat, with a contributor cap. No “contact sales,” ever. Join the waitlist and we'll bring you on.</p>
     <div class="tiers" style="text-align:left">
       <div class="tier reveal"><div class="pn">Self-host</div><div class="price">$0</div><div class="desc">The whole standup, on your own infra. MIT-licensed, read-only.</div>
         <ul>
@@ -376,14 +396,14 @@
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>Slack or Discord delivery</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>Daily + weekly + status vs plan</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>Up to ~10 contributors</li>
-        </ul><a class="btn btn-soft" href="https://github.com/Doppel-Labs/inky">Start free trial</a></div>
+        </ul><a class="btn btn-soft" href="https://inky.example/waitlist">Join the waitlist</a></div>
       <div class="tier feat reveal"><span class="badge">most teams</span><div class="pn">Pro</div><div class="price">$49<span class="per">/mo</span></div><div class="desc">Hosted, managed keys, and the parts you can't self-host.</div>
         <ul>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>Everything in Starter</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg><b style="font-weight:700">Ask Inky</b> — grounded Q&amp;A</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>Private manager DM digests</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>History, trends &amp; Linear status</li>
-        </ul><a class="btn btn-primary" href="https://github.com/Doppel-Labs/inky">Start free trial</a></div>
+        </ul><a class="btn btn-primary" href="https://inky.example/waitlist">Join the waitlist</a></div>
     </div>
   </section>
 
@@ -397,11 +417,12 @@
     </div>
   </section>
 </div>
+</main>
 
 <footer>
   <div class="wrap footin">
     <div>
-      <div class="brand"><svg class="logo"><use href="#tile"/></svg> Inky</div>
+      <div class="brand"><svg class="logo" aria-hidden="true"><use href="#tile"/></svg> Inky</div>
       <p class="sig">Your standup, written by a small, well-read octopus. Open-source and friendly.</p>
     </div>
     <div class="footcols">
